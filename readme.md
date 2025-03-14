@@ -16,7 +16,7 @@
 <p>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.8%2B-blue" alt="Python Version"></a>
   <a href="license"><img src="https://img.shields.io/badge/license-MIT-green" alt="License"></a>
-  <a href="https://pytest-cov.readthedocs.io/"><img src="https://img.shields.io/badge/coverage-95%25%2B-brightgreen" alt="Test Coverage"></a>
+  <a href="https://pytest-cov.readthedocs.io/"><img src="https://img.shields.io/badge/coverage-100%25-brightgreen" alt="Test Coverage"></a>
 </p>
 
 </div>
@@ -25,8 +25,9 @@
 
 - 🎨 **Modern and visually appealing CLI interface** powered by Rich
 - 🔧 **Git repository management** with initialization and configuration
+- 📂 **File staging system** with intelligent error handling
 - 🧩 **Modular architecture** for easy extensibility
-- 📊 **High test coverage** (95%+) for reliability
+- 📊 **Complete test coverage** (100%) for reliability
 - 🚀 **Simple and intuitive commands** for efficient workflow
 
 ## 📋 Table of Contents
@@ -119,69 +120,47 @@ $ clony init /invalid/path
 ERROR    Parent directory does not exist: /invalid/path
 ```
 
-## 📁 Project Structure
+#### `stage`
 
-```
-clony/
-├── __init__.py          # Package initialization and version info
-├── cli.py              # Command-line interface using Click and Rich
-├── logger.py           # Logging configuration with colorlog
-├── repository.py       # Git repository management functionality
-├── advanced/          # Reserved for advanced Git operations
-│   └── __init__.py
-├── core/             # Core Git functionality
-│   └── __init__.py
-├── internals/        # Internal utilities and helpers
-│   └── __init__.py
-└── remote/           # Remote repository operations
-    └── __init__.py
-
-tests/                # Test suite directory
-├── __init__.py
-├── test_cli.py       # Tests for CLI functionality
-├── test_logger.py    # Tests for logging functionality
-└── test_repository.py # Tests for repository operations
-
-# Project Configuration
-pyproject.toml        # Project metadata and dependencies
-README.md            # Project documentation
-LICENSE              # MIT License
-```
-
-The project follows a modular structure:
-- `cli.py`: Implements the command-line interface using Click and Rich
-- `logger.py`: Configures logging with colorlog for better visibility
-- `repository.py`: Handles Git repository operations
-- `advanced/`: Reserved for advanced Git operations
-- `core/`: Contains core Git functionality
-- `internals/`: Houses internal utilities and helpers
-- `remote/`: Manages remote repository operations
-- `tests/`: Contains comprehensive test suite with 95%+ coverage
-
-## 💻 Development
-
-Clony is built with a focus on code quality and test coverage:
+Stage a file by adding its content to the staging area. This command prepares a file to be included in the next commit by creating a blob object from the file content and updating the index.
 
 ```bash
-# Install development dependencies
-pip install -e ".[dev]"
+# Basic Usage
+clony stage <file_path>  # Stage a file for the next commit
 
-# Run tests with coverage
-pytest
-
-# Run linting
-ruff check .
-
-# Format code
-ruff format .
+# Options
+--help, -h              # Show help for stage command
 ```
 
-## 📝 License
+**Examples:**
 
-This project is licensed under the MIT License - see the [LICENSE](license) file for details.
+```bash
+# Stage a file
+$ clony stage myfile.txt
+INFO     File staged: 'myfile.txt'
+File staged: 'myfile.txt'
 
----
+# Try to stage a non-existent file
+$ clony stage non_existent_file.txt
+Error: Invalid value for 'PATH': Path 'non_existent_file.txt' does not exist.
 
-<div align="center">
-Made with ❤️ by the Rohit Vilas Ingole
-</div>
+# Stage a file in a non-git repository
+$ clony stage file_outside_repo.txt
+ERROR    Not a git repository
+ERROR:   Not a git repository. Run 'clony init' to create one.
+
+# Try to stage a file that's already staged (with same content)
+$ clony stage already_staged.txt
+WARNING  File already staged: 'already_staged.txt'
+WARNING: File already staged: 'already_staged.txt'
+
+# Stage a file after changing its content
+$ echo "Changed content" > myfile.txt
+$ clony stage myfile.txt
+INFO     File staged: 'myfile.txt'
+File staged: 'myfile.txt'
+
+# Other errors during staging
+$ clony stage problematic_file.txt
+ERROR    Error staging file: <specific error message>
+```

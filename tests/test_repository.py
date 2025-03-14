@@ -9,6 +9,7 @@ import pathlib
 import shutil
 import tempfile
 from typing import Generator
+from unittest.mock import patch
 
 # Third-party imports
 import pytest
@@ -136,3 +137,27 @@ def test_repository_invalid_path():
 
     # Try to initialize the repository
     assert repo.init() is False
+
+
+# Test for repository initialization exception
+def test_repository_initialization_exception(temp_dir: pathlib.Path):
+    """
+    Test repository initialization exception handling.
+
+    Args:
+        temp_dir: Path to the temporary directory.
+    """
+
+    # Create a new repository instance
+    repo = Repository(str(temp_dir))
+
+    # Mock mkdir to raise an exception
+    with patch("pathlib.Path.mkdir", side_effect=OSError("Mocked OSError")):
+        # Try to initialize the repository and expect failure
+        assert repo.init() is False
+
+    # Assert that repository does not exist
+    assert not repo.exists()
+
+    # Assert that .git directory does not exist
+    assert not repo.git_dir.exists()
