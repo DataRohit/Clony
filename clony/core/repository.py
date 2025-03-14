@@ -12,7 +12,7 @@ import pathlib
 from rich.console import Console
 
 # Local imports
-from clony.logger import logger
+from clony.utils.logger import logger
 
 # Initialize rich console for pretty output
 console = Console()

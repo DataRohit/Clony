@@ -15,7 +15,7 @@ from unittest.mock import patch
 import pytest
 
 # Local imports
-from clony.repository import Repository
+from clony.core.repository import Repository
 
 
 # Test for the Repository class

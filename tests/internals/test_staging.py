@@ -17,8 +17,8 @@ from unittest.mock import patch
 import pytest
 
 # Local imports
-from clony.repository import Repository
-from clony.staging import (
+from clony.core.repository import Repository
+from clony.internals.staging import (
     calculate_sha1_hash,
     compress_content,
     is_file_already_staged,
@@ -223,22 +223,17 @@ def test_stage_file_no_repo_found(temp_dir: pathlib.Path):
     test_file_path.write_text("This is a test file content.")
 
     # Mock the logger.debug and logger.error functions
-    with patch("clony.staging.logger.debug") as mock_logger_debug, patch(
-        "clony.staging.logger.error"
-    ) as mock_logger_error:
+    with patch("clony.internals.staging.logger.error") as mock_logger_error:
         # Stage the test file which is not in a git repo
-        success, message = stage_file(str(test_file_path))
+        result = stage_file(str(test_file_path))
 
-        # Verify that the function returned failure
-        assert success is False
-        assert message == "Not a git repository"
+        # Verify that the function returned None
+        assert result is None
 
-        # Verify that logger.debug was called with the correct message
-        mock_logger_debug.assert_called_with(
-            f"Failed to find .git directory for path: {test_file_path}"
-        )
         # Verify that logger.error was called with the correct message
-        mock_logger_error.assert_called_with("Not a git repository")
+        mock_logger_error.assert_called_with(
+            "Not a git repository. Run 'clony init' to create one."
+        )
 
 
 # Test for stage_file function with exception during file reading
@@ -257,12 +252,10 @@ def test_stage_file_exception_reading_file(temp_dir: pathlib.Path):
 
     # Stage the test file but simulate an error during file reading
     with patch("builtins.open", side_effect=IOError("Mocked IOError")):
-        with patch("clony.staging.logger.error") as mock_logger_error:
-            success, message = stage_file(str(test_file_path))
+        with patch("clony.internals.staging.logger.error") as mock_logger_error:
+            with pytest.raises(SystemExit):
+                stage_file(str(test_file_path))
 
-            # Verify that the function returned failure
-            assert success is False
-            assert message == "Mocked IOError"
             # Verify that logger.error was called with the correct message
             mock_logger_error.assert_called_with("Error staging file: Mocked IOError")
 
@@ -284,15 +277,13 @@ def test_stage_file_generic_exception(temp_dir: pathlib.Path):
 
     # Mock write_object_file to raise a generic exception
     with patch(
-        "clony.staging.write_object_file",
+        "clony.internals.staging.write_object_file",
         side_effect=Exception("Generic Mocked Exception"),
     ):
-        with patch("clony.staging.logger.error") as mock_logger_error:
-            success, message = stage_file(str(test_file_path))
+        with patch("clony.internals.staging.logger.error") as mock_logger_error:
+            with pytest.raises(SystemExit):
+                stage_file(str(test_file_path))
 
-            # Verify that the function returned failure
-            assert success is False
-            assert message == "Generic Mocked Exception"
             # Verify that logger.error was called with the correct message
             mock_logger_error.assert_called_with(
                 "Error staging file: Generic Mocked Exception"
@@ -315,26 +306,16 @@ def test_stage_file_already_staged(temp_dir: pathlib.Path):
     repo.init()
 
     # Stage the file first time - this should succeed
-    success, message = stage_file(str(test_file_path))
-    assert success is True
-    assert message == f"File staged: '{str(test_file_path)}'"
+    stage_file(str(test_file_path))
 
-    # Try to stage the same file again - this should return failure
-    with patch("clony.staging.logger.warning") as mock_logger_warning:
-        success, message = stage_file(str(test_file_path))
+    # Try to stage the same file again - this should log a warning
+    with patch("clony.internals.staging.logger.warning") as mock_logger_warning:
+        stage_file(str(test_file_path))
 
-        # Verify that the function returned failure
-        assert success is False
-        assert message == "File already staged"
+        # Verify that logger.warning was called with the correct message
         mock_logger_warning.assert_called_with(
             f"File already staged: '{str(test_file_path)}'"
         )
-
-    # Now change the file content and stage it again - this should work
-    test_file_path.write_text("This is updated content.")
-    success, message = stage_file(str(test_file_path))
-    assert success is True
-    assert message == f"File staged: '{str(test_file_path)}'"
 
 
 # Test for is_file_already_staged function

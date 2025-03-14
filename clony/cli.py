@@ -18,9 +18,9 @@ from rich.text import Text
 
 # Local imports
 from clony import __version__
-from clony.logger import logger
-from clony.repository import Repository
-from clony.staging import stage_file  # Import the new staging function
+from clony.core.repository import Repository
+from clony.internals.staging import stage_file
+from clony.utils.logger import logger
 
 # Initialize rich console for pretty output
 console = Console()
@@ -273,12 +273,4 @@ def stage(path: str):
         return
 
     # Stage the file using the staging module
-    success, message = stage_file(path)
-    if success:
-        console.print(message)
-    elif message == "Not a git repository":
-        logger.error("Not a git repository. Run 'clony init' to create one.")
-    elif message.startswith("File already staged"):
-        logger.warning(f"File already staged: '{path}'")
-    else:
-        logger.error(f"Error staging file: '{path}'")
+    stage_file(path)
