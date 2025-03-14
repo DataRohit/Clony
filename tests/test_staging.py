@@ -227,11 +227,11 @@ def test_stage_file_no_repo_found(temp_dir: pathlib.Path):
         "clony.staging.logger.error"
     ) as mock_logger_error:
         # Stage the test file which is not in a git repo
-        with pytest.raises(SystemExit) as exc_info:
-            stage_file(str(test_file_path))
+        success, message = stage_file(str(test_file_path))
 
-        # Verify that the function exited with code 1
-        assert exc_info.value.code == 1
+        # Verify that the function returned failure
+        assert success is False
+        assert message == "Not a git repository"
 
         # Verify that logger.debug was called with the correct message
         mock_logger_debug.assert_called_with(
@@ -258,11 +258,11 @@ def test_stage_file_exception_reading_file(temp_dir: pathlib.Path):
     # Stage the test file but simulate an error during file reading
     with patch("builtins.open", side_effect=IOError("Mocked IOError")):
         with patch("clony.staging.logger.error") as mock_logger_error:
-            with pytest.raises(SystemExit) as exc_info:
-                stage_file(str(test_file_path))
+            success, message = stage_file(str(test_file_path))
 
-            # Verify that the function exited with code 1
-            assert exc_info.value.code == 1
+            # Verify that the function returned failure
+            assert success is False
+            assert message == "Mocked IOError"
             # Verify that logger.error was called with the correct message
             mock_logger_error.assert_called_with("Error staging file: Mocked IOError")
 
@@ -288,11 +288,11 @@ def test_stage_file_generic_exception(temp_dir: pathlib.Path):
         side_effect=Exception("Generic Mocked Exception"),
     ):
         with patch("clony.staging.logger.error") as mock_logger_error:
-            with pytest.raises(SystemExit) as exc_info:
-                stage_file(str(test_file_path))
+            success, message = stage_file(str(test_file_path))
 
-            # Verify that the function exited with code 1
-            assert exc_info.value.code == 1
+            # Verify that the function returned failure
+            assert success is False
+            assert message == "Generic Mocked Exception"
             # Verify that logger.error was called with the correct message
             mock_logger_error.assert_called_with(
                 "Error staging file: Generic Mocked Exception"
@@ -319,13 +319,13 @@ def test_stage_file_already_staged(temp_dir: pathlib.Path):
     assert success is True
     assert message == f"File staged: '{str(test_file_path)}'"
 
-    # Try to stage the same file again - this should raise SystemExit
+    # Try to stage the same file again - this should return failure
     with patch("clony.staging.logger.warning") as mock_logger_warning:
-        with pytest.raises(SystemExit) as exc_info:
-            stage_file(str(test_file_path))
+        success, message = stage_file(str(test_file_path))
 
-        # Verify that the function exited with code 1
-        assert exc_info.value.code == 1
+        # Verify that the function returned failure
+        assert success is False
+        assert message == "File already staged"
         mock_logger_warning.assert_called_with(
             f"File already staged: '{str(test_file_path)}'"
         )

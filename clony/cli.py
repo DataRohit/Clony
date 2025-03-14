@@ -272,38 +272,13 @@ def stage(path: str):
         logger.error(f"File not found: '{path}'")
         return
 
-    try:
-        # Stage the file using the staging module
-        success, message = stage_file(path)
-        if success:
-            console.print(message)
-        else:
-            console.print(f"[bold red]ERROR:[/bold red] {message}")
-
-    except Exception as e:
-        error_message = str(e)
-
-        # Handle specific error cases
-        if error_message == "Not a git repository":
-            # Don't log again, it's already logged in staging.py
-            console.print(
-                "[bold red]ERROR:[/bold red]   Not a git repository. "
-                "Run 'clony init' to create one."
-            )
-        elif error_message == "File already staged":
-            # Don't log again, it's already logged in staging.py
-            console.print(
-                f"[bold yellow]WARNING:[/bold yellow] File already staged: '{path}'"
-            )
-        elif "Error staging file:" in error_message:
-            # Don't log again, it's already logged in staging.py
-            pass
-        elif isinstance(e, NotADirectoryError):
-            logger.error(f"Invalid path: '{path}' is not a directory")
-            console.print(
-                f"[bold red]ERROR:[/bold red] Invalid path: '{path}' is not a directory"
-            )
-        else:
-            # For other errors, log the full error message
-            logger.error(f"Error staging file: {e}")
-            console.print(f"[bold red]ERROR:[/bold red] Error staging file: {e}")
+    # Stage the file using the staging module
+    success, message = stage_file(path)
+    if success:
+        console.print(message)
+    elif message == "Not a git repository":
+        logger.error("Not a git repository. Run 'clony init' to create one.")
+    elif message.startswith("File already staged"):
+        logger.warning(f"File already staged: '{path}'")
+    else:
+        logger.error(f"Error staging file: '{path}'")
