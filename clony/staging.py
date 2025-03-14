@@ -6,7 +6,6 @@ This module handles the staging of files for the Clony Git clone tool.
 
 # Standard library imports
 import hashlib
-import sys
 import zlib
 from pathlib import Path
 
@@ -198,9 +197,9 @@ def stage_file(file_path: str) -> tuple[bool, str]:
         # Define repository paths
         repo_path = find_git_repo_path(file_path_obj)
         if not repo_path:
-            # If no git repo found, log error and return error message
+            # If no git repo found, return error
             logger.error("Not a git repository")
-            sys.exit(1)
+            return False, "Not a git repository"
 
         # Define repository paths
         object_dir = repo_path / ".git" / "objects"
@@ -208,9 +207,9 @@ def stage_file(file_path: str) -> tuple[bool, str]:
 
         # Check if the file is already staged
         if is_file_already_staged(index_file, str(file_path_obj), sha1_hash):
-            # If the file is already staged, log warning and return error message
+            # If the file is already staged, return error
             logger.warning(f"File already staged: '{file_path}'")
-            sys.exit(1)
+            return False, "File already staged"
 
         # Ensure objects directory exists
         object_dir.mkdir(parents=True, exist_ok=True)
@@ -228,6 +227,6 @@ def stage_file(file_path: str) -> tuple[bool, str]:
         return True, f"File staged: '{file_path}'"
 
     except Exception as e:
-        # Log the error
+        # Log the error and return error message
         logger.error(f"Error staging file: {e}")
-        sys.exit(1)
+        return False, str(e)
