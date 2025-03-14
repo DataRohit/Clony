@@ -270,7 +270,6 @@ def stage(path: str):
     # Check if file exists before proceeding
     if not pathlib.Path(path).exists():
         logger.error(f"File not found: '{path}'")
-        console.print(f"[bold red]ERROR:[/bold red]   File not found: '{path}'")
         return
 
     try:
