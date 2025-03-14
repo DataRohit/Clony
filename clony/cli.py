@@ -5,6 +5,7 @@ This module provides the command-line interface for the Clony Git clone tool.
 """
 
 # Standard imports
+import pathlib
 import sys
 
 # Third-party imports
@@ -17,6 +18,8 @@ from rich.text import Text
 
 # Local imports
 from clony import __version__
+from clony.logger import logger
+from clony.repository import Repository
 
 # Initialize rich console for pretty output
 console = Console()
@@ -86,8 +89,10 @@ def display_stylized_help(ctx, show_logo=True):
 
         # Add the commands to the table
         for cmd_name, cmd in sorted(ctx.command.commands.items()):
+            # Get the first line of the help text
             cmd_help = cmd.help or "No description available."
-            cmd_table.add_row(cmd_name, cmd_help)
+            first_line = cmd_help.split("\n")[0].strip()
+            cmd_table.add_row(cmd_name, first_line)
 
         # Print the table
         console.print(cmd_table)
@@ -215,3 +220,33 @@ def main():
 if __name__ == "__main__":
     # Run the CLI
     main()
+
+
+# Initialize a new Git repository
+@cli.command()
+@click.argument("path", type=click.Path(), default=".")
+@click.option(
+    "--force", "-f", is_flag=True, help="Force reinitialization of the repository."
+)
+def init(path: str, force: bool):
+    """Initialize a new Git repository in the specified directory.
+
+    Creates a Git repository in the specified directory. If no directory is
+    provided, initializes in the current directory."""
+
+    # Convert the path to an absolute path
+    repo_path = pathlib.Path(path).resolve()
+
+    # Create a new repository instance
+    repo = Repository(str(repo_path))
+
+    # Initialize the repository
+    if repo.init(force=force):
+        logger.info(f"Initialized empty Git repository in {repo_path}")
+    else:
+        if repo.exists():
+            logger.warning("Git repository already exists")
+            logger.info("Use --force to reinitialize")
+        else:
+            logger.error("Failed to initialize Git repository")
+        sys.exit(1)
