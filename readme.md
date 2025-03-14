@@ -55,116 +55,108 @@ pip install -e .
 
 ## 🚀 Usage
 
-Clony provides a modern CLI interface with helpful commands:
-
-```bash
-# Display help information
-clony --help
-clony -h
-
-# Display version information
-clony --version
-clony -v
-
-# Get help on specific commands
-clony help
-
-# Initialize a new Git repository
-clony init                     # Initialize in current directory
-clony init [path]              # Initialize in specified path
-clony init -f                  # Force reinitialization in current directory
-clony init -f [path]           # Force reinitialization in specified path
-clony init --force             # Force reinitialization in current directory
-clony init --force [path]      # Force reinitialization in specified path
-```
-
 ### Available Commands
 
-#### `init` - Initialize a new Git repository
+#### Global Options
 
-Creates a Git repository in the specified directory. If no directory is provided, initializes in the current directory.
+The following options are available for all commands:
 
-Options:
-- `--force, -f`: Force reinitialization of the repository if it already exists
-- `--help, -h`: Show help message for the init command
+```bash
+--help, -h     # Show help information for any command
+--version, -v  # Display version information
+```
 
-Example:
+#### `help`
+
+Display detailed help information about available commands and options.
+
+```bash
+# Show general help information with logo
+clony help
+
+# Show help for a specific command
+clony init --help
+```
+
+#### `init`
+
+Initialize a new Git repository in the specified directory.
+
+```bash
+# Basic Usage
+clony init [path]  # Create a new Git repository
+
+# Options
+--force, -f       # Force reinitialization if repository exists
+--help, -h        # Show help for init command
+```
+
+**Examples:**
+
 ```bash
 # Initialize in current directory
-clony init
+$ clony init
+INFO     Git repository initialized successfully
+INFO     Initialized empty Git repository in /current/path
 
-# Initialize in specific directory
-clony init /path/to/repo
+# Initialize in a new directory
+$ clony init my-project
+INFO     Git repository initialized successfully
+INFO     Initialized empty Git repository in /path/to/my-project
+
+# Try to initialize in existing repository
+$ clony init existing-repo
+WARNING  Git repository already exists
+INFO     Use --force to reinitialize
 
 # Force reinitialization
-clony init --force
-```
+$ clony init existing-repo --force
+INFO     Git repository initialized successfully
+INFO     Initialized empty Git repository in /path/to/existing-repo
 
-### Example Output
-
-When you run `clony --help`, you'll see a beautifully formatted help screen:
-
-```
-╭─────────────────────────────────── A Modern Git Clone Tool ───────────────────────────────────╮
-│                                                                                               │
-│                                                                                               │
-│      ██████╗██╗      ██████╗ ███╗   ██╗██╗   ██╗                                              │
-│     ██╔════╝██║     ██╔═══██╗████╗  ██║╚██╗ ██╔╝                                              │
-│     ██║     ██║     ██║   ██║██╔██╗ ██║ ╚████╔╝                                               │
-│     ██║     ██║     ██║   ██║██║╚██╗██║  ╚██╔╝                                                │
-│     ╚██████╗███████╗╚██████╔╝██║ ╚████║   ██║                                                 │
-│      ╚═════╝╚══════╝ ╚═════╝ ╚═╝  ╚═══╝   ╚═╝                                                 │
-│                                                                                               │
-│                                                                                               │
-╰─────────────────────────────────────────── v0.1.0 ────────────────────────────────────────────╯
-╭───────────────────────────────────────── Description ─────────────────────────────────────────╮
-│                                                                                               │
-│  Clony: A modern Git clone tool with a cool CLI interface.                                    │
-│                                                                                               │
-│  Run 'clony --help' for usage information.                                                    │
-│                                                                                               │
-╰───────────────────────────────────────────────────────────────────────────────────────────────╯
-                   Commands
-┏━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ Command ┃ Description                      ┃
-┡━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
-│ help    │ Show this help message and exit. │
-└─────────┴──────────────────────────────────┘
-                      Options
-┏━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ Option        ┃ Description                      ┃
-┡━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
-│ --help, -h    │ Show this help message and exit. │
-│ --version, -v │ Show the version and exit.       │
-└───────────────┴──────────────────────────────────┘
-╭──────────────────────────────────────────── Usage ────────────────────────────────────────────╮
-│ clony [OPTIONS] COMMAND [ARGS]...                                                             │
-╰───────────────────────────────────────────────────────────────────────────────────────────────╯
+# Initialize with invalid path
+$ clony init /invalid/path
+ERROR    Parent directory does not exist: /invalid/path
 ```
 
 ## 📁 Project Structure
 
 ```
 clony/
-├── clony/                  # Main package
-│   ├── __init__.py         # Package initialization
-│   ├── cli.py              # Command-line interface
-│   ├── core/               # Core functionality
-│   │   └── __init__.py
-│   ├── remote/             # Remote repository operations
-│   │   └── __init__.py
-│   ├── advanced/           # Advanced features
-│   │   └── __init__.py
-│   └── internals/          # Internal utilities
-│       └── __init__.py
-├── tests/                  # Test suite
-│   ├── __init__.py
-│   ├── conftest.py         # Test configuration
-│   └── test_cli.py         # CLI tests
-├── pyproject.toml          # Project configuration
-├── README.md               # Project documentation
-└── LICENSE                 # License information
+├── __init__.py          # Package initialization and version info
+├── cli.py              # Command-line interface using Click and Rich
+├── logger.py           # Logging configuration with colorlog
+├── repository.py       # Git repository management functionality
+├── advanced/          # Reserved for advanced Git operations
+│   └── __init__.py
+├── core/             # Core Git functionality
+│   └── __init__.py
+├── internals/        # Internal utilities and helpers
+│   └── __init__.py
+└── remote/           # Remote repository operations
+    └── __init__.py
+
+tests/                # Test suite directory
+├── __init__.py
+├── test_cli.py       # Tests for CLI functionality
+├── test_logger.py    # Tests for logging functionality
+└── test_repository.py # Tests for repository operations
+
+# Project Configuration
+pyproject.toml        # Project metadata and dependencies
+README.md            # Project documentation
+LICENSE              # MIT License
 ```
+
+The project follows a modular structure:
+- `cli.py`: Implements the command-line interface using Click and Rich
+- `logger.py`: Configures logging with colorlog for better visibility
+- `repository.py`: Handles Git repository operations
+- `advanced/`: Reserved for advanced Git operations
+- `core/`: Contains core Git functionality
+- `internals/`: Houses internal utilities and helpers
+- `remote/`: Manages remote repository operations
+- `tests/`: Contains comprehensive test suite with 95%+ coverage
 
 ## 💻 Development
 
