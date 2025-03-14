@@ -137,30 +137,81 @@ clony stage <file_path>  # Stage a file for the next commit
 ```bash
 # Stage a file
 $ clony stage myfile.txt
-INFO     File staged: 'myfile.txt'
 File staged: 'myfile.txt'
 
 # Try to stage a non-existent file
 $ clony stage non_existent_file.txt
-Error: Invalid value for 'PATH': Path 'non_existent_file.txt' does not exist.
+ERROR    File not found: 'non_existent_file.txt'
 
 # Stage a file in a non-git repository
 $ clony stage file_outside_repo.txt
 ERROR    Not a git repository
-ERROR:   Not a git repository. Run 'clony init' to create one.
 
-# Try to stage a file that's already staged (with same content)
+# Try to stage a file that's already staged
 $ clony stage already_staged.txt
-WARNING  File already staged: 'already_staged.txt'
-WARNING: File already staged: 'already_staged.txt'
+WARNING  File already staged: 'file01.txt'
 
 # Stage a file after changing its content
 $ echo "Changed content" > myfile.txt
 $ clony stage myfile.txt
-INFO     File staged: 'myfile.txt'
 File staged: 'myfile.txt'
 
-# Other errors during staging
-$ clony stage problematic_file.txt
-ERROR    Error staging file: <specific error message>
+# Stage a file with invalid path
+$ clony stage /invalid/path/file.txt
+ERROR    File not found: '/invalid/path/file.txt'
 ```
+
+## 📁 Project Structure
+
+```
+clony/
+├── clony/                  # Main package
+│   ├── __init__.py         # Package initialization
+│   ├── cli.py              # Command-line interface
+│   ├── staging.py          # File staging functionality
+│   ├── repository.py       # Repository management
+│   ├── logger.py           # Logging configuration
+│   ├── core/               # Core functionality
+│   │   └── __init__.py
+│   ├── remote/             # Remote repository operations
+│   │   └── __init__.py
+│   ├── advanced/           # Advanced features
+│   │   └── __init__.py
+│   └── internals/          # Internal utilities
+│       └── __init__.py
+├── tests/                  # Test suite
+│   ├── __init__.py
+│   ├── conftest.py         # Test configuration
+│   └── test_cli.py         # CLI tests
+├── pyproject.toml          # Project configuration
+├── README.md               # Project documentation
+└── LICENSE                 # License information
+```
+
+## 💻 Development
+
+Clony is built with a focus on code quality and test coverage:
+
+```bash
+# Install development dependencies
+pip install -e ".[dev]"
+
+# Run tests with coverage
+pytest -v
+
+# Run linting
+ruff check .
+
+# Format code
+ruff format .
+```
+
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](license) file for details.
+
+---
+
+<div align="center">
+Made with ❤️ by Rohit Vilas Ingole
+</div>

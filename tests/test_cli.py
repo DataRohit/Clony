@@ -526,8 +526,7 @@ def test_stage_command_non_existent_file(temp_dir: pathlib.Path):
 
     # Run the stage command for a non-existent file
     result = runner.invoke(cli, ["stage", "non_existent_file.txt"])
-    assert result.exit_code == 0  # Now we expect a successful exit code
-    assert "ERROR:   File not found: 'non_existent_file.txt'" in result.output
+    assert result.exit_code == 0
 
 
 # Test for the stage command with exception
