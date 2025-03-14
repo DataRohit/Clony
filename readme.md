@@ -35,7 +35,6 @@
 - [Installation](#-installation)
 - [Usage](#-usage)
 - [Project Structure](#-project-structure)
-- [Test Organization](#-test-organization)
 - [Development](#-development)
 - [License](#-license)
 
@@ -199,35 +198,6 @@ clony/
 ├── readme.md               # Project documentation
 └── license                 # License information
 ```
-
-## 🧪 Test Organization
-
-The test suite mirrors the structure of the main package:
-
-### Main Test Package (`tests`)
-
-Contains the test configuration and CLI tests:
-
-- `conftest.py`: Pytest configuration with custom markers
-- `test_cli.py`: Tests for the command-line interface
-
-### Core Tests (`tests.core`)
-
-Tests for the core functionality:
-
-- `test_repository.py`: Tests for the Repository class
-
-### Internals Tests (`tests.internals`)
-
-Tests for the internal utilities:
-
-- `test_staging.py`: Tests for the staging functionality
-
-### Utils Tests (`tests.utils`)
-
-Tests for the utility functions:
-
-- `test_logger.py`: Tests for the logging functionality
 
 ## 💻 Development
 
