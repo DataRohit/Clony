@@ -8,7 +8,7 @@ This module contains tests for the logger configuration and usage.
 import logging
 
 # Local imports
-from clony.logger import setup_logger
+from clony.utils.logger import setup_logger
 
 
 # Test logger creation

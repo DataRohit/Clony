@@ -5,7 +5,6 @@ This module contains tests for the Clony CLI functionality.
 """
 
 # Standard imports
-import hashlib
 import pathlib
 import shutil
 import tempfile
@@ -21,7 +20,7 @@ from click.testing import CliRunner
 import clony
 from clony import __version__
 from clony.cli import cli, display_logo, display_stylized_help, main
-from clony.repository import Repository
+from clony.core.repository import Repository
 
 
 # Test for the CLI help command with --help
@@ -490,24 +489,10 @@ def test_stage_command(temp_dir: pathlib.Path):
     test_file_path.write_text("This is a test file.")
 
     # Run the stage command for the test file
-    result = runner.invoke(cli, ["stage", str(test_file_path)])
-    assert result.exit_code == 0
-    assert f"File staged: '{str(test_file_path)}'" in result.stdout.strip()
-
-    # Check if blob object was created
-    repo = Repository(str(temp_dir))
-    file_content = test_file_path.read_bytes()
-    sha1_hash = hashlib.sha1(file_content).hexdigest()
-    object_file_path = repo.git_dir / "objects" / sha1_hash[:2] / sha1_hash[2:]
-    assert object_file_path.exists()
-
-    # Check if index file was updated
-    index_file_path = repo.git_dir / "index"
-    assert index_file_path.exists()
-    with open(index_file_path, "r") as index_file:
-        index_content = index_file.read()
-        assert str(test_file_path) in index_content
-        assert sha1_hash in index_content
+    with patch("clony.cli.stage_file") as mock_stage_file:
+        result = runner.invoke(cli, ["stage", str(test_file_path)])
+        assert result.exit_code == 0
+        mock_stage_file.assert_called_once_with(str(test_file_path))
 
 
 # Test for the stage command with non-existent file
@@ -524,13 +509,16 @@ def test_stage_command_non_existent_file(temp_dir: pathlib.Path):
     result = runner.invoke(cli, ["init", str(temp_dir)])
     assert result.exit_code == 0
 
-    # Run the stage command for a non-existent file
+    # Define a non-existent file path
+    non_existent_file = temp_dir / "non_existent_file.txt"
+
+    # Run the stage command with a non-existent file
     with patch("clony.cli.logger.error") as mock_logger_error:
-        result = runner.invoke(cli, ["stage", "non_existent_file.txt"])
-        mock_logger_error.assert_called_with("File not found: 'non_existent_file.txt'")
+        result = runner.invoke(cli, ["stage", str(non_existent_file)])
+        mock_logger_error.assert_called_with(f"File not found: '{non_existent_file}'")
 
 
-# Test for the stage command with exception
+# Test for the stage command with a generic exception
 def test_stage_command_exception(temp_dir: pathlib.Path):
     """
     Test the stage command with a generic exception.
@@ -550,20 +538,15 @@ def test_stage_command_exception(temp_dir: pathlib.Path):
 
     # Mock stage_file function to raise a generic exception
     with patch(
-        "clony.cli.stage_file", return_value=(False, "Generic Mocked Exception")
+        "clony.cli.stage_file", side_effect=Exception("Generic Mocked Exception")
     ):
-        # Mock the logger.error function to verify it's called with the correct message
-        with patch("clony.cli.logger.error") as mock_logger_error:
-            # Run the stage command and expect an error
-            result = runner.invoke(cli, ["stage", str(test_file_path)])
-
-            # Verify that logger.error was called with the correct message
-            mock_logger_error.assert_called_with(
-                f"Error staging file: '{test_file_path}'"
-            )
+        # Run the stage command and expect an error
+        result = runner.invoke(cli, ["stage", str(test_file_path)])
+        # Verify that the command exited with an error
+        assert result.exit_code != 0
 
 
-# Test for the stage command with FileNotFoundError
+# Test for the stage command when a FileNotFoundError is raised
 def test_stage_command_file_not_found_error(temp_dir: pathlib.Path):
     """
     Test the stage command when a FileNotFoundError is raised.
@@ -581,20 +564,15 @@ def test_stage_command_file_not_found_error(temp_dir: pathlib.Path):
     test_file_path = temp_dir / "test_file.txt"
     test_file_path.write_text("This is a test file.")
 
-    # Mock stage_file function to return a file not found error
-    with patch("clony.cli.stage_file", return_value=(False, "File not found")):
-        # Mock the logger.error function to verify it's called with the correct message
-        with patch("clony.cli.logger.error") as mock_logger_error:
-            # Run the stage command and expect an error
-            result = runner.invoke(cli, ["stage", str(test_file_path)])
-
-            # Verify that logger.error was called with the correct message
-            mock_logger_error.assert_called_with(
-                f"Error staging file: '{test_file_path}'"
-            )
+    # Mock stage_file function to raise a FileNotFoundError
+    with patch("clony.cli.stage_file", side_effect=FileNotFoundError("File not found")):
+        # Run the stage command and expect an error
+        result = runner.invoke(cli, ["stage", str(test_file_path)])
+        # Verify that the command exited with an error
+        assert result.exit_code != 0
 
 
-# Test for the stage command with NotADirectoryError
+# Test for the stage command when a NotADirectoryError is raised
 def test_stage_command_not_a_directory_error(temp_dir: pathlib.Path):
     """
     Test the stage command when a NotADirectoryError is raised.
@@ -612,20 +590,17 @@ def test_stage_command_not_a_directory_error(temp_dir: pathlib.Path):
     test_file_path = temp_dir / "test_file.txt"
     test_file_path.write_text("This is a test file.")
 
-    # Mock stage_file function to return a not a directory error
-    with patch("clony.cli.stage_file", return_value=(False, "Not a directory")):
-        # Mock the logger.error function to verify it's called with the correct message
-        with patch("clony.cli.logger.error") as mock_logger_error:
-            # Run the stage command and expect an error
-            result = runner.invoke(cli, ["stage", str(test_file_path)])
-
-            # Verify that logger.error was called with the correct message
-            mock_logger_error.assert_called_with(
-                f"Error staging file: '{test_file_path}'"
-            )
+    # Mock stage_file function to raise a NotADirectoryError
+    with patch(
+        "clony.cli.stage_file", side_effect=NotADirectoryError("Not a directory")
+    ):
+        # Run the stage command and expect an error
+        result = runner.invoke(cli, ["stage", str(test_file_path)])
+        # Verify that the command exited with an error
+        assert result.exit_code != 0
 
 
-# Test for the stage command with "Not a git repository" error
+# Test for the stage command when a "Not a git repository" error is raised
 def test_stage_command_not_a_git_repo(temp_dir: pathlib.Path):
     """
     Test the stage command when a "Not a git repository" error is raised.
@@ -638,18 +613,16 @@ def test_stage_command_not_a_git_repo(temp_dir: pathlib.Path):
     test_file_path = temp_dir / "test_file.txt"
     test_file_path.write_text("This is a test file.")
 
-    # Mock stage_file function to return a not a git repository error
-    with patch("clony.cli.stage_file", return_value=(False, "Not a git repository")):
+    # Mock stage_file function to exit with a SystemExit
+    with patch("clony.cli.stage_file", side_effect=SystemExit(1)):
         # Run the stage command and expect an error
         runner = CliRunner()
-        with patch("clony.cli.logger.error") as mock_logger_error:
-            runner.invoke(cli, ["stage", str(test_file_path)])
-            mock_logger_error.assert_called_with(
-                "Not a git repository. Run 'clony init' to create one."
-            )
+        result = runner.invoke(cli, ["stage", str(test_file_path)])
+        # Verify that the command exited with an error
+        assert result.exit_code != 0
 
 
-# Test for the stage command with "File already staged" error
+# Test for the stage command when a "File already staged" warning is logged
 def test_stage_command_file_already_staged(temp_dir: pathlib.Path):
     """
     Test the stage command when a "File already staged" error is raised.
@@ -667,17 +640,25 @@ def test_stage_command_file_already_staged(temp_dir: pathlib.Path):
     test_file_path = temp_dir / "test_file.txt"
     test_file_path.write_text("This is a test file.")
 
-    # Mock stage_file function to return a file already staged error
-    with patch("clony.cli.stage_file", return_value=(False, "File already staged")):
-        # Run the stage command and expect an error
-        with patch("clony.cli.logger.warning") as mock_logger_warning:
-            result = runner.invoke(cli, ["stage", str(test_file_path)])
-            mock_logger_warning.assert_called_with(
-                f"File already staged: '{test_file_path}'"
-            )
+    # Mock stage_file function to call logger.warning with "File already staged"
+    with patch("clony.cli.stage_file") as mock_stage_file:
+        # Set up the side effect to call a function that logs a warning
+        def side_effect(path):
+            from clony.utils.logger import logger
+
+            logger.warning(f"File already staged: '{path}'")
+
+        mock_stage_file.side_effect = side_effect
+
+        # Run the stage command
+        result = runner.invoke(cli, ["stage", str(test_file_path)])
+        # Verify that the command executed successfully
+        assert result.exit_code == 0
+        # Verify that the mock was called with the correct path
+        mock_stage_file.assert_called_with(str(test_file_path))
 
 
-# Test for the stage command with "Error staging file:" error
+# Test for the stage command when an "Error staging file:" error is raised
 def test_stage_command_error_staging_file(temp_dir: pathlib.Path):
     """
     Test the stage command when an "Error staging file:" error is raised.
@@ -695,23 +676,25 @@ def test_stage_command_error_staging_file(temp_dir: pathlib.Path):
     test_file_path = temp_dir / "test_file.txt"
     test_file_path.write_text("This is a test file.")
 
-    # Mock stage_file function to return an error staging file error
-    with patch(
-        "clony.cli.stage_file",
-        return_value=(False, "Error staging file: Some specific error"),
-    ):
-        # Mock the logger.error function to verify it's called with the correct message
-        with patch("clony.cli.logger.error") as mock_logger_error:
-            # Run the stage command and expect an error
-            result = runner.invoke(cli, ["stage", str(test_file_path)])
+    # Mock stage_file function to call logger.error with "Error staging file"
+    with patch("clony.cli.stage_file") as mock_stage_file:
+        # Set up the side effect to call a function that logs an error
+        def side_effect(path):
+            from clony.utils.logger import logger
 
-            # Verify that logger.error was called with the correct message
-            mock_logger_error.assert_called_with(
-                f"Error staging file: '{test_file_path}'"
-            )
+            logger.error(f"Error staging file: '{path}'")
+            raise SystemExit(1)
+
+        mock_stage_file.side_effect = side_effect
+
+        # Run the stage command and expect an error
+        result = runner.invoke(cli, ["stage", str(test_file_path)])
+        # Verify that the command exited with an error
+        assert result.exit_code != 0
+        # Verify that the mock was called with the correct path
+        mock_stage_file.assert_called_with(str(test_file_path))
 
 
-# Test for stage command with error staging file message
 @pytest.mark.unit
 def test_stage_command_error_staging_file_message():
     """
@@ -725,21 +708,29 @@ def test_stage_command_error_staging_file_message():
         with open("test.txt", "w") as f:
             f.write("test content")
 
-        # Mock stage_file to return an error staging file error
+        # Mock stage_file to log an error and exit
         with patch("clony.cli.stage_file") as mock_stage:
-            mock_stage.return_value = (False, "Error staging file: test error")
+
+            def side_effect(path):
+                from clony.utils.logger import logger
+
+                logger.error(f"Error staging file: '{path}'")
+                raise SystemExit(1)
+
+            mock_stage.side_effect = side_effect
 
             # Run the command
-            with patch("clony.cli.logger.error") as mock_logger_error:
-                runner.invoke(cli, ["stage", "test.txt"])
-                mock_logger_error.assert_called_with("Error staging file: 'test.txt'")
+            result = runner.invoke(cli, ["stage", "test.txt"])
+            # Verify that the command exited with an error
+            assert result.exit_code != 0
+            # Verify that the mock was called with the correct path
+            mock_stage.assert_called_with("test.txt")
 
 
-# Test for stage command with failure return value
 @pytest.mark.unit
 def test_stage_command_failure_return():
     """
-    Test the stage command when stage_file returns a failure tuple.
+    Test the stage command when stage_file raises a SystemExit.
     """
     runner = CliRunner()
 
@@ -749,11 +740,9 @@ def test_stage_command_failure_return():
         with open("test.txt", "w") as f:
             f.write("test content")
 
-        # Mock stage_file to return a failure tuple
-        with patch("clony.cli.stage_file") as mock_stage:
-            mock_stage.return_value = (False, "Failed to stage file")
-
+        # Mock stage_file to raise SystemExit
+        with patch("clony.cli.stage_file", side_effect=SystemExit(1)):
             # Run the command
-            with patch("clony.cli.logger.error") as mock_logger_error:
-                runner.invoke(cli, ["stage", "test.txt"])
-                mock_logger_error.assert_called_with("Error staging file: 'test.txt'")
+            result = runner.invoke(cli, ["stage", "test.txt"])
+            # Verify that the command exited with an error
+            assert result.exit_code != 0

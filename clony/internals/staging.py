@@ -6,11 +6,12 @@ This module handles the staging of files for the Clony Git clone tool.
 
 # Standard library imports
 import hashlib
+import sys
 import zlib
 from pathlib import Path
 
 # Local imports
-from clony.logger import logger
+from clony.utils.logger import logger
 
 
 # Function to find the .git repository path
@@ -111,8 +112,13 @@ def update_index_file(index_file: Path, file_path: str, sha1_hash: str) -> None:
     file_found = False
     new_lines = []
 
+    # Iterate over the lines in the index file
     for line in lines:
+        # Split the line into parts
         parts = line.strip().split()
+
+        # If the line has two parts and the first part is the file path,
+        # update the entry with the new hash
         if len(parts) == 2 and parts[0] == file_path:
             # Update the existing entry with the new hash
             new_lines.append(f"{file_path} {sha1_hash}\n")
@@ -156,7 +162,11 @@ def is_file_already_staged(index_file: Path, file_path: str, current_hash: str) 
 
     # Check if the file path is in the index with the same hash
     for line in index_content:
+        # Split the line into parts
         parts = line.strip().split()
+
+        # If the line has two parts and the first part is the file path,
+        # check if the hash matches
         if len(parts) == 2 and parts[0] == file_path:
             # If the file is in the index, check if the hash matches
             return parts[1] == current_hash
@@ -166,7 +176,7 @@ def is_file_already_staged(index_file: Path, file_path: str, current_hash: str) 
 
 
 # Function to stage a file
-def stage_file(file_path: str) -> tuple[bool, str]:
+def stage_file(file_path: str) -> None:
     """
     Stage a file by creating a blob object and updating the index.
 
@@ -198,8 +208,8 @@ def stage_file(file_path: str) -> tuple[bool, str]:
         repo_path = find_git_repo_path(file_path_obj)
         if not repo_path:
             # If no git repo found, return error
-            logger.error("Not a git repository")
-            return False, "Not a git repository"
+            logger.error("Not a git repository. Run 'clony init' to create one.")
+            return
 
         # Define repository paths
         object_dir = repo_path / ".git" / "objects"
@@ -209,7 +219,7 @@ def stage_file(file_path: str) -> tuple[bool, str]:
         if is_file_already_staged(index_file, str(file_path_obj), sha1_hash):
             # If the file is already staged, return error
             logger.warning(f"File already staged: '{file_path}'")
-            return False, "File already staged"
+            return
 
         # Ensure objects directory exists
         object_dir.mkdir(parents=True, exist_ok=True)
@@ -223,10 +233,10 @@ def stage_file(file_path: str) -> tuple[bool, str]:
         # Update index file
         update_index_file(index_file, file_path, sha1_hash)
 
-        # Return success message
-        return True, f"File staged: '{file_path}'"
+        # Log the successful staging of the file
+        logger.info(f"File staged: '{file_path}'")
 
     except Exception as e:
         # Log the error and return error message
         logger.error(f"Error staging file: {e}")
-        return False, str(e)
+        sys.exit(1)

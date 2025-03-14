@@ -35,6 +35,7 @@
 - [Installation](#-installation)
 - [Usage](#-usage)
 - [Project Structure](#-project-structure)
+- [Test Organization](#-test-organization)
 - [Development](#-development)
 - [License](#-license)
 
@@ -137,7 +138,7 @@ clony stage <file_path>  # Stage a file for the next commit
 ```bash
 # Stage a file
 $ clony stage myfile.txt
-File staged: 'myfile.txt'
+INFO     File staged: 'myfile.txt'
 
 # Try to stage a non-existent file
 $ clony stage non_existent_file.txt
@@ -145,16 +146,16 @@ ERROR    File not found: 'non_existent_file.txt'
 
 # Stage a file in a non-git repository
 $ clony stage file_outside_repo.txt
-ERROR    Not a git repository
+ERROR    Not a git repository. Run 'clony init' to create one.
 
 # Try to stage a file that's already staged
 $ clony stage already_staged.txt
-WARNING  File already staged: 'file01.txt'
+WARNING  File already staged: 'already_staged.txt'
 
 # Stage a file after changing its content
 $ echo "Changed content" > myfile.txt
 $ clony stage myfile.txt
-File staged: 'myfile.txt'
+INFO     File staged: 'myfile.txt'
 
 # Stage a file with invalid path
 $ clony stage /invalid/path/file.txt
@@ -166,27 +167,67 @@ ERROR    File not found: '/invalid/path/file.txt'
 ```
 clony/
 ├── clony/                  # Main package
-│   ├── __init__.py         # Package initialization
+│   ├── __init__.py         # Package initialization with version and exports
 │   ├── cli.py              # Command-line interface
-│   ├── staging.py          # File staging functionality
-│   ├── repository.py       # Repository management
-│   ├── logger.py           # Logging configuration
 │   ├── core/               # Core functionality
-│   │   └── __init__.py
-│   ├── remote/             # Remote repository operations
-│   │   └── __init__.py
-│   ├── advanced/           # Advanced features
-│   │   └── __init__.py
-│   └── internals/          # Internal utilities
-│       └── __init__.py
+│   │   ├── __init__.py     # Core module initialization with exports
+│   │   └── repository.py   # Repository management
+│   ├── internals/          # Internal utilities
+│   │   ├── __init__.py     # Internals module initialization with exports
+│   │   └── staging.py      # File staging functionality
+│   ├── utils/              # Utility functions
+│   │   ├── __init__.py     # Utils module initialization with exports
+│   │   └── logger.py       # Logging configuration
+│   ├── remote/             # Remote repository operations (future)
+│   │   └── __init__.py     # Remote module initialization
+│   └── advanced/           # Advanced features (future)
+│       └── __init__.py     # Advanced module initialization
 ├── tests/                  # Test suite
-│   ├── __init__.py
-│   ├── conftest.py         # Test configuration
-│   └── test_cli.py         # CLI tests
+│   ├── __init__.py         # Test package initialization
+│   ├── conftest.py         # Pytest configuration
+│   ├── test_cli.py         # CLI tests
+│   ├── core/               # Tests for core functionality
+│   │   ├── __init__.py     # Core tests initialization
+│   │   └── test_repository.py  # Repository tests
+│   ├── internals/          # Tests for internal utilities
+│   │   ├── __init__.py     # Internals tests initialization
+│   │   └── test_staging.py # Staging tests
+│   └── utils/              # Tests for utility functions
+│       ├── __init__.py     # Utils tests initialization
+│       └── test_logger.py  # Logger tests
 ├── pyproject.toml          # Project configuration
-├── README.md               # Project documentation
-└── LICENSE                 # License information
+├── readme.md               # Project documentation
+└── license                 # License information
 ```
+
+## 🧪 Test Organization
+
+The test suite mirrors the structure of the main package:
+
+### Main Test Package (`tests`)
+
+Contains the test configuration and CLI tests:
+
+- `conftest.py`: Pytest configuration with custom markers
+- `test_cli.py`: Tests for the command-line interface
+
+### Core Tests (`tests.core`)
+
+Tests for the core functionality:
+
+- `test_repository.py`: Tests for the Repository class
+
+### Internals Tests (`tests.internals`)
+
+Tests for the internal utilities:
+
+- `test_staging.py`: Tests for the staging functionality
+
+### Utils Tests (`tests.utils`)
+
+Tests for the utility functions:
+
+- `test_logger.py`: Tests for the logging functionality
 
 ## 💻 Development
 
