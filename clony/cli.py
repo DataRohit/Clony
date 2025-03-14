@@ -20,6 +20,7 @@ from rich.text import Text
 from clony import __version__
 from clony.logger import logger
 from clony.repository import Repository
+from clony.staging import stage_file  # Import the new staging function
 
 # Initialize rich console for pretty output
 console = Console()
@@ -176,8 +177,9 @@ def cli(ctx, help, version):
         # Exit the program
         sys.exit(0)
 
-    # Display the logo for other commands
-    display_logo()
+    # Display the logo only when no subcommand is invoked or help/version is requested
+    if ctx.invoked_subcommand is None and not help and not version:
+        display_logo()
 
     # If no command is provided or --version is specified
     if ctx.invoked_subcommand is None or version:
@@ -217,7 +219,7 @@ def main():
 
 
 # Execute the CLI if this file is run directly
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     # Run the CLI
     main()
 
@@ -250,3 +252,59 @@ def init(path: str, force: bool):
         else:
             logger.error("Failed to initialize Git repository")
         sys.exit(1)
+
+
+# Stage command to add file content to the staging area
+@cli.command()
+@click.argument("path", type=click.Path())
+def stage(path: str):
+    """Stage a file by adding its content to the staging area.
+
+    This command prepares a file to be included in the next commit by
+    creating a blob object from the file content and updating the index.
+
+    Args:
+        path (str): The path to the file to be staged.
+    """
+
+    # Check if file exists before proceeding
+    if not pathlib.Path(path).exists():
+        logger.error(f"File not found: '{path}'")
+        console.print(f"[bold red]ERROR:[/bold red]   File not found: '{path}'")
+        return
+
+    try:
+        # Stage the file using the staging module
+        success, message = stage_file(path)
+        if success:
+            console.print(message)
+        else:
+            console.print(f"[bold red]ERROR:[/bold red] {message}")
+
+    except Exception as e:
+        error_message = str(e)
+
+        # Handle specific error cases
+        if error_message == "Not a git repository":
+            # Don't log again, it's already logged in staging.py
+            console.print(
+                "[bold red]ERROR:[/bold red]   Not a git repository. "
+                "Run 'clony init' to create one."
+            )
+        elif error_message == "File already staged":
+            # Don't log again, it's already logged in staging.py
+            console.print(
+                f"[bold yellow]WARNING:[/bold yellow] File already staged: '{path}'"
+            )
+        elif "Error staging file:" in error_message:
+            # Don't log again, it's already logged in staging.py
+            pass
+        elif isinstance(e, NotADirectoryError):
+            logger.error(f"Invalid path: '{path}' is not a directory")
+            console.print(
+                f"[bold red]ERROR:[/bold red] Invalid path: '{path}' is not a directory"
+            )
+        else:
+            # For other errors, log the full error message
+            logger.error(f"Error staging file: {e}")
+            console.print(f"[bold red]ERROR:[/bold red] Error staging file: {e}")
