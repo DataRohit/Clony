@@ -728,3 +728,59 @@ def test_stage_command_error_staging_file(temp_dir: pathlib.Path):
 
             # For "Error staging file:" errors, the CLI doesn't print to console
             mock_logger_error.assert_not_called()
+
+
+# Test for stage command with error staging file message
+@pytest.mark.unit
+def test_stage_command_error_staging_file_message():
+    """
+    Test the stage command when an error occurs with 'Error staging file:' message.
+    """
+    runner = CliRunner()
+
+    # Create a temporary file
+    with runner.isolated_filesystem():
+        # Create a test file
+        with open("test.txt", "w") as f:
+            f.write("test content")
+
+        # Mock stage_file to raise an exception with specific message
+        with patch("clony.cli.stage_file") as mock_stage:
+            mock_stage.side_effect = Exception("Error staging file: test error")
+
+            # Run the command
+            result = runner.invoke(cli, ["stage", "test.txt"])
+
+            # Verify the command exited successfully (since error is handled)
+            assert result.exit_code == 0
+
+            # Verify no output since error is already logged in staging.py
+            assert result.output == ""
+
+
+# Test for stage command with failure return value
+@pytest.mark.unit
+def test_stage_command_failure_return():
+    """
+    Test the stage command when stage_file returns a failure tuple.
+    """
+    runner = CliRunner()
+
+    # Create a temporary file
+    with runner.isolated_filesystem():
+        # Create a test file
+        with open("test.txt", "w") as f:
+            f.write("test content")
+
+        # Mock stage_file to return a failure tuple
+        with patch("clony.cli.stage_file") as mock_stage:
+            mock_stage.return_value = (False, "Failed to stage file")
+
+            # Run the command
+            result = runner.invoke(cli, ["stage", "test.txt"])
+
+            # Verify the command exited successfully (since error is handled)
+            assert result.exit_code == 0
+
+            # Verify error output (without Rich formatting)
+            assert "ERROR: Failed to stage file" in result.output

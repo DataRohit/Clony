@@ -6,6 +6,7 @@ This module handles the staging of files for the Clony Git clone tool.
 
 # Standard library imports
 import hashlib
+import sys
 import zlib
 from pathlib import Path
 
@@ -166,8 +167,18 @@ def is_file_already_staged(index_file: Path, file_path: str, current_hash: str) 
 
 
 # Function to stage a file
-def stage_file(file_path: str) -> None:
-    """Stage a file by creating a blob object and updating the index."""
+def stage_file(file_path: str) -> tuple[bool, str]:
+    """
+    Stage a file by creating a blob object and updating the index.
+
+    Args:
+        file_path (str): Path to the file to stage.
+
+    Returns:
+        tuple[bool, str]: A tuple containing:
+            - bool: True if staging was successful, False otherwise
+            - str: Success message or error message
+    """
 
     try:
         # Convert file path to Path object
@@ -187,18 +198,19 @@ def stage_file(file_path: str) -> None:
         # Define repository paths
         repo_path = find_git_repo_path(file_path_obj)
         if not repo_path:
-            # If no git repo found, log error and raise exception
+            # If no git repo found, log error and return error message
             logger.error("Not a git repository")
-            raise Exception("Not a git repository")
+            sys.exit(1)
 
+        # Define repository paths
         object_dir = repo_path / ".git" / "objects"
         index_file = repo_path / ".git" / "index"
 
         # Check if the file is already staged
         if is_file_already_staged(index_file, str(file_path_obj), sha1_hash):
-            # If the file is already staged, log warning and raise exception
+            # If the file is already staged, log warning and return error message
             logger.warning(f"File already staged: '{file_path}'")
-            raise Exception("File already staged")
+            sys.exit(1)
 
         # Ensure objects directory exists
         object_dir.mkdir(parents=True, exist_ok=True)
@@ -212,15 +224,10 @@ def stage_file(file_path: str) -> None:
         # Update index file
         update_index_file(index_file, file_path, sha1_hash)
 
-    except Exception as e:
-        # Log the error if it's not already logged
-        if str(e) != "Not a git repository" and str(e) != "File already staged":
-            logger.error(f"Error staging file: {e}")
+        # Return success message
+        return True, f"File staged: '{file_path}'"
 
-        # Raise the error with the expected format for tests
-        if str(e) == "Not a git repository" or str(e) == "File already staged":
-            # Re-raise the original exception for known cases
-            raise
-        else:
-            # For other errors, wrap them in the expected format
-            raise Exception(f"Error staging file: {e}")
+    except Exception as e:
+        # Log the error
+        logger.error(f"Error staging file: {e}")
+        sys.exit(1)

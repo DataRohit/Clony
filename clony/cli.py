@@ -275,9 +275,11 @@ def stage(path: str):
 
     try:
         # Stage the file using the staging module
-        stage_file(path)
-        logger.info(f"File staged: '{path}'")
-        console.print(f"File staged: '{path}'")
+        success, message = stage_file(path)
+        if success:
+            console.print(message)
+        else:
+            console.print(f"[bold red]ERROR:[/bold red] {message}")
 
     except Exception as e:
         error_message = str(e)
