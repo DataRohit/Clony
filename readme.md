@@ -24,6 +24,7 @@
 ## ✨ Features
 
 - 🎨 **Modern and visually appealing CLI interface** powered by Rich
+- 🔧 **Git repository management** with initialization and configuration
 - 🧩 **Modular architecture** for easy extensibility
 - 📊 **High test coverage** (95%+) for reliability
 - 🚀 **Simple and intuitive commands** for efficient workflow
@@ -67,6 +68,36 @@ clony -v
 
 # Get help on specific commands
 clony help
+
+# Initialize a new Git repository
+clony init                     # Initialize in current directory
+clony init [path]              # Initialize in specified path
+clony init -f                  # Force reinitialization in current directory
+clony init -f [path]           # Force reinitialization in specified path
+clony init --force             # Force reinitialization in current directory
+clony init --force [path]      # Force reinitialization in specified path
+```
+
+### Available Commands
+
+#### `init` - Initialize a new Git repository
+
+Creates a Git repository in the specified directory. If no directory is provided, initializes in the current directory.
+
+Options:
+- `--force, -f`: Force reinitialization of the repository if it already exists
+- `--help, -h`: Show help message for the init command
+
+Example:
+```bash
+# Initialize in current directory
+clony init
+
+# Initialize in specific directory
+clony init /path/to/repo
+
+# Force reinitialization
+clony init --force
 ```
 
 ### Example Output
