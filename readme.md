@@ -2,20 +2,20 @@
 
 <div align="center">
 
-```
+<pre>
     ██████╗██╗      ██████╗ ███╗   ██╗██╗   ██╗
    ██╔════╝██║     ██╔═══██╗████╗  ██║╚██╗ ██╔╝
    ██║     ██║     ██║   ██║██╔██╗ ██║ ╚████╔╝ 
    ██║     ██║     ██║   ██║██║╚██╗██║  ╚██╔╝  
    ╚██████╗███████╗╚██████╔╝██║ ╚████║   ██║   
     ╚═════╝╚══════╝ ╚═════╝ ╚═╝  ╚═══╝   ╚═╝   
-```
+</pre>
 
 **A modern Git clone tool with a cool CLI interface**
 
 <p>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.8%2B-blue" alt="Python Version"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="License"></a>
+  <a href="license"><img src="https://img.shields.io/badge/license-MIT-green" alt="License"></a>
   <a href="https://pytest-cov.readthedocs.io/"><img src="https://img.shields.io/badge/coverage-95%25%2B-brightgreen" alt="Test Coverage"></a>
 </p>
 
@@ -155,7 +155,7 @@ ruff format .
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](license) file for details.
 
 ---
 
