@@ -124,6 +124,8 @@ ERROR    Parent directory does not exist: /invalid/path
 
 Stage a file by adding its content to the staging area. This command prepares a file to be included in the next commit by creating a blob object from the file content and updating the index.
 
+The command will prevent staging files that haven't changed since the last commit, ensuring that only meaningful changes are committed. This check is performed regardless of whether the file is currently in the staging area or not, which means that even after a commit (which clears the staging area), you cannot stage a file that hasn't changed since that commit.
+
 ```bash
 # Basic Usage
 clony stage <file_path>  # Stage a file for the next commit
@@ -156,9 +158,68 @@ $ echo "Changed content" > myfile.txt
 $ clony stage myfile.txt
 INFO     File staged: 'myfile.txt'
 
-# Stage a file with invalid path
+# Try to stage a file with invalid path
 $ clony stage /invalid/path/file.txt
 ERROR    File not found: '/invalid/path/file.txt'
+
+# Try to stage an unchanged file
+$ clony stage unchanged_file.txt
+WARNING  File unchanged since last commit: 'unchanged_file.txt'
+
+# Try to stage an unchanged file after a commit (this will still fail)
+$ clony commit --message "Initial commit"
+INFO     Created commit a1b2c3d with message: Initial commit
+INFO     Staging area cleared
+$ clony stage unchanged_file.txt
+WARNING  File unchanged since last commit: 'unchanged_file.txt'
+
+# Stage a file after modifying it
+$ echo "New content" > unchanged_file.txt
+$ clony stage unchanged_file.txt
+INFO     File staged: 'unchanged_file.txt'
+```
+
+#### `commit`
+
+Create a new commit with the staged changes. This command creates a new commit object with the staged changes, including a tree object representing the directory structure and a reference to the parent commit.
+
+The commit message is required, while author name and email are optional and will default to "Clony User" and "user@example.com" if not provided.
+
+After a successful commit, the staging area is automatically cleared, ensuring a clean state for the next set of changes.
+
+```bash
+# Basic Usage
+clony commit --message "Your commit message"  # Create a commit with staged changes
+
+# Options
+--message, -m         # The commit message (required)
+--author-name         # The name of the author (defaults to "Clony User")
+--author-email        # The email of the author (defaults to "user@example.com")
+--help, -h            # Show help for commit command
+```
+
+**Examples:**
+
+```bash
+# Create a basic commit
+$ clony commit --message "Initial commit"
+INFO     Created commit a1b2c3d with message: Initial commit
+
+# Create a commit with author information
+$ clony commit --message "Add feature" --author-name "John Doe" --author-email "john@example.com"
+INFO     Created commit e4f5g6h with message: Add feature
+
+# Try to commit without a message
+$ clony commit
+ERROR    Missing option '--message' / '-m'.
+
+# Try to commit with no staged changes
+$ clony commit --message "Empty commit"
+ERROR    Nothing to commit. Run 'clony stage <file>' to stage changes.
+
+# Try to commit outside a git repository
+$ clony commit --message "Outside repo"
+ERROR    Not a git repository. Run 'clony init' to create one.
 ```
 
 ## 📁 Project Structure
@@ -196,6 +257,7 @@ clony/
 │       └── test_logger.py  # Logger tests
 ├── pyproject.toml          # Project configuration
 ├── readme.md               # Project documentation
+├── run_checks.sh           # Script to run linting and tests
 └── license                 # License information
 ```
 
@@ -216,6 +278,25 @@ ruff check .
 # Format code
 ruff format .
 ```
+
+### Automated Checks
+
+For convenience, a script is provided to run both linting and tests in one command:
+
+```bash
+# Make the script executable (first time only)
+chmod +x run_checks.sh
+
+# Run linting and tests
+./run_checks.sh
+```
+
+This script will:
+1. Run Ruff checks on your code
+2. Attempt to fix any issues automatically
+3. Run pytest with coverage reporting
+
+It's recommended to run this script after making changes to ensure code quality and test coverage are maintained.
 
 ## 📝 License
 
