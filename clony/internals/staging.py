@@ -221,6 +221,16 @@ def stage_file(file_path: str) -> None:
             logger.warning(f"File already staged: '{file_path}'")
             return
 
+        # Check if the object file exists in the objects directory
+        # with the same hash as the current content
+        object_subdir = object_dir / sha1_hash[:2]
+        object_file = object_subdir / sha1_hash[2:]
+
+        # If the object file exists, the file hasn't changed since the last commit
+        if object_file.exists():
+            logger.warning(f"File unchanged since last commit: '{file_path}'")
+            return
+
         # Ensure objects directory exists
         object_dir.mkdir(parents=True, exist_ok=True)
 
@@ -240,3 +250,95 @@ def stage_file(file_path: str) -> None:
         # Log the error and return error message
         logger.error(f"Error staging file: {e}")
         sys.exit(1)
+
+
+# Function to clear the staging area
+def clear_staging_area(repo_path: Path) -> None:
+    """
+    Clear the staging area by removing all entries from the index file.
+
+    Args:
+        repo_path (Path): Path to the repository.
+    """
+    # Define the index file path
+    index_file = repo_path / ".git" / "index"
+
+    # If the index file exists, clear it
+    if index_file.exists():
+        # Write an empty file
+        with open(index_file, "w") as f:
+            f.write("")
+
+        # Log the successful clearing of the staging area
+        logger.debug(f"Cleared staging area: {index_file}")
+
+
+# Function to check if a file has changed since the last commit
+def has_file_changed_since_commit(
+    repo_path: Path, file_path: str, current_hash: str
+) -> bool:
+    """
+    Check if a file has changed since the last commit.
+
+    Args:
+        repo_path (Path): Path to the repository.
+        file_path (str): Path to the file.
+        current_hash (str): Current SHA-1 hash of the file content.
+
+    Returns:
+        bool: True if the file has changed, False otherwise.
+    """
+    try:
+        # Convert paths to Path objects
+        repo_path = Path(repo_path)
+        file_path_obj = Path(file_path)
+
+        logger.debug(
+            f"has_file_changed_since_commit: repo_path={repo_path}, "
+            f"file_path={file_path}, current_hash={current_hash}"
+        )
+
+        try:
+            # Check if the file is within the repository
+            _ = file_path_obj.relative_to(repo_path)
+        except ValueError:
+            # If the file is not in the repository, consider it changed
+            logger.debug(
+                "has_file_changed_since_commit: file is not in repository, "
+                "returning True"
+            )
+            return True
+
+        # Check if the object file exists in the objects directory
+        # with the same hash as the current content
+        objects_dir = repo_path / ".git" / "objects"
+        object_subdir = objects_dir / current_hash[:2]
+        object_file = object_subdir / current_hash[2:]
+
+        logger.debug(
+            f"has_file_changed_since_commit: checking if object file exists: "
+            f"{object_file}"
+        )
+        logger.debug(
+            f"has_file_changed_since_commit: object file exists: {object_file.exists()}"
+        )
+
+        # If the object file doesn't exist, the file has changed
+        if not object_file.exists():
+            logger.debug(
+                "has_file_changed_since_commit: object file does not exist, "
+                "returning True"
+            )
+            return True
+
+        # If the object file exists, the file hasn't changed since the last commit
+        # We don't care if it's in the staging area or not - if the object exists,
+        # it means the file content is already in the repository
+        logger.debug(
+            "has_file_changed_since_commit: object file exists, returning False"
+        )
+        return False
+    except Exception as e:
+        # If there's an error, assume the file has changed
+        logger.debug(f"Error checking if file has changed: {e}")
+        return True

@@ -8,6 +8,7 @@ This module contains tests for the staging functions.
 import hashlib
 import pathlib
 import shutil
+import sys
 import tempfile
 import zlib
 from typing import Generator
@@ -20,7 +21,9 @@ import pytest
 from clony.core.repository import Repository
 from clony.internals.staging import (
     calculate_sha1_hash,
+    clear_staging_area,
     compress_content,
+    has_file_changed_since_commit,
     is_file_already_staged,
     stage_file,
     update_index_file,
@@ -344,3 +347,322 @@ def test_is_file_already_staged(temp_dir: pathlib.Path):
 
     # Test when file is not in index
     assert not is_file_already_staged(index_file, "non_existent_file.txt", "hash789")
+
+
+# Test for clear_staging_area function
+@pytest.mark.unit
+def test_clear_staging_area(temp_dir: pathlib.Path):
+    """
+    Test the clear_staging_area function.
+    """
+    # Initialize a repository
+    repo = Repository(str(temp_dir))
+    repo.init()
+
+    # Create a test file
+    test_file_path = temp_dir / "test_file.txt"
+    test_file_path.write_text("test content")
+
+    # Stage the test file
+    with patch.object(sys, "argv", ["clony", "stage", str(test_file_path)]):
+        stage_file(str(test_file_path))
+
+    # Define the index file path
+    index_file = temp_dir / ".git" / "index"
+
+    # Verify that the index file exists and has content
+    assert index_file.exists()
+    with open(index_file, "r") as f:
+        content = f.read()
+    assert content.strip() != ""
+
+    # Clear the staging area
+    clear_staging_area(temp_dir)
+
+    # Verify that the index file exists but is empty
+    assert index_file.exists()
+    with open(index_file, "r") as f:
+        content = f.read()
+    assert content.strip() == ""
+
+
+# Test for has_file_changed_since_commit function
+@pytest.mark.unit
+def test_has_file_changed_since_commit(temp_dir: pathlib.Path):
+    """
+    Test the has_file_changed_since_commit function.
+    """
+    # Initialize a repository
+    repo = Repository(str(temp_dir))
+    repo.init()
+
+    # Create a test file
+    test_file_path = temp_dir / "test_file.txt"
+    test_file_content = "test content"
+    test_file_path.write_text(test_file_content)
+
+    # Calculate the SHA-1 hash of the content
+    content_hash = calculate_sha1_hash(test_file_content.encode())
+
+    # Check if the file has changed
+    # (it should have, as it's not in the objects directory yet)
+    assert has_file_changed_since_commit(temp_dir, str(test_file_path), content_hash)
+
+    # Stage the file to create the object
+    with patch.object(sys, "argv", ["clony", "stage", str(test_file_path)]):
+        stage_file(str(test_file_path))
+
+    # Create a file outside the repository
+    outside_file_path = pathlib.Path(tempfile.gettempdir()) / "outside_file.txt"
+    outside_file_path.write_text("outside content")
+
+    # Check if the outside file has changed
+    # (it should have, as it's outside the repository)
+    assert has_file_changed_since_commit(
+        temp_dir,
+        str(outside_file_path),
+        calculate_sha1_hash("outside content".encode()),
+    )
+
+    # Test with an exception
+    with patch("pathlib.Path.relative_to", side_effect=Exception("Test exception")):
+        assert has_file_changed_since_commit(
+            temp_dir, str(test_file_path), content_hash
+        )
+
+
+# Test for has_file_changed_since_commit function with non-existent object
+@pytest.mark.unit
+def test_has_file_changed_since_commit_non_existent_object(temp_dir: pathlib.Path):
+    """
+    Test the has_file_changed_since_commit function when the object doesn't exist.
+    """
+    # Initialize a repository
+    repo = Repository(str(temp_dir))
+    repo.init()
+
+    # Create a test file
+    test_file_path = temp_dir / "test_file.txt"
+    test_file_content = "test content"
+    test_file_path.write_text(test_file_content)
+
+    # Calculate the SHA-1 hash of the content
+    content_hash = calculate_sha1_hash(test_file_content.encode())
+
+    # Create the object directory structure but not the object file itself
+    objects_dir = temp_dir / ".git" / "objects"
+    object_subdir = objects_dir / content_hash[:2]
+    object_subdir.mkdir(parents=True, exist_ok=True)
+
+    # The object file doesn't exist, so has_file_changed_since_commit should return True
+    assert has_file_changed_since_commit(temp_dir, str(test_file_path), content_hash)
+
+
+# Test for has_file_changed_since_commit function with unchanged file
+@pytest.mark.unit
+def test_has_file_changed_since_commit_unchanged_file(temp_dir: pathlib.Path):
+    """
+    Test the has_file_changed_since_commit function when the file hasn't changed.
+    """
+    # Initialize a repository
+    repo = Repository(str(temp_dir))
+    repo.init()
+
+    # Create a test file
+    test_file_path = temp_dir / "test_file.txt"
+    test_file_content = "test content"
+    test_file_path.write_text(test_file_content)
+
+    # Calculate the SHA-1 hash of the content
+    content_hash = calculate_sha1_hash(test_file_content.encode())
+
+    # Stage the file to create the object
+    with patch.object(sys, "argv", ["clony", "stage", str(test_file_path)]):
+        stage_file(str(test_file_path))
+
+    # Create the object file manually to ensure it exists
+    objects_dir = temp_dir / ".git" / "objects"
+    object_subdir = objects_dir / content_hash[:2]
+    object_file = object_subdir / content_hash[2:]
+
+    # Ensure the object file exists
+    assert object_file.exists()
+
+    # The file hasn't changed, so has_file_changed_since_commit should return False
+    assert not has_file_changed_since_commit(
+        temp_dir, str(test_file_path), content_hash
+    )
+
+
+# Test for stage_file function when file hasn't changed since last commit
+@pytest.mark.unit
+def test_stage_file_unchanged_since_commit(temp_dir: pathlib.Path):
+    """
+    Test the stage_file function when the file hasn't changed since the last commit.
+    """
+    # Initialize a repository
+    repo = Repository(str(temp_dir))
+    repo.init()
+
+    # Create a test file
+    test_file_path = temp_dir / "test_file.txt"
+    test_file_content = "test content"
+    test_file_path.write_text(test_file_content)
+
+    # Stage the file first time - this should succeed
+    stage_file(str(test_file_path))
+
+    # Create a commit to record the file state
+    with patch("clony.internals.commit.find_git_repo_path", return_value=temp_dir):
+        from clony.internals.commit import make_commit
+
+        make_commit("Initial commit", "Test Author", "test@example.com")
+
+    # Try to stage the same file again without changes
+    # This should now fail because the file hasn't changed, even though the staging area
+    # was cleared
+    with patch("clony.internals.staging.logger.warning") as mock_logger_warning:
+        # Stage the file again - this should warn about unchanged file
+        stage_file(str(test_file_path))
+
+        # Verify that logger.warning was called with the correct message
+        mock_logger_warning.assert_called_with(
+            f"File unchanged since last commit: '{str(test_file_path)}'"
+        )
+
+    # Verify that the file is not in the staging area
+    # (index should be empty after commit)
+    index_file = temp_dir / ".git" / "index"
+    assert index_file.exists()
+    with open(index_file, "r") as f:
+        content = f.read()
+    assert content.strip() == ""
+
+
+# Test for has_file_changed_since_commit function with object file that should exist
+# but doesn't
+@pytest.mark.unit
+def test_has_file_changed_since_commit_missing_object_file(temp_dir: pathlib.Path):
+    """
+    Test the has_file_changed_since_commit function when the object file should exist
+    but doesn't. This tests the specific case where the file is in the staging area
+    but the object file is missing.
+    """
+    # Initialize a repository
+    repo = Repository(str(temp_dir))
+    repo.init()
+
+    # Create a test file
+    test_file_path = temp_dir / "test_file.txt"
+    test_file_content = "test content"
+    test_file_path.write_text(test_file_content)
+
+    # Calculate the SHA-1 hash of the content
+    content_hash = calculate_sha1_hash(test_file_content.encode())
+
+    # Manually create an index file with the test file entry
+    # This simulates a file being in the staging area
+    index_file = temp_dir / ".git" / "index"
+    with open(index_file, "w") as f:
+        f.write(f"{str(test_file_path)} {content_hash}\n")
+
+    # Create the objects directory structure but not the object file itself
+    objects_dir = temp_dir / ".git" / "objects"
+    object_subdir = objects_dir / content_hash[:2]
+    object_subdir.mkdir(parents=True, exist_ok=True)
+
+    # The object file doesn't exist, so has_file_changed_since_commit should return True
+    # This covers line 314 in staging.py
+    assert has_file_changed_since_commit(temp_dir, str(test_file_path), content_hash)
+
+
+# Test for stage_file function when file hasn't changed but is not in staging area
+@pytest.mark.unit
+def test_stage_file_unchanged_not_staged(temp_dir: pathlib.Path):
+    """
+    Test the stage_file function when the file hasn't changed since the last commit
+    but is not in the staging area. This tests the specific warning case.
+    """
+    # Initialize a repository
+    repo = Repository(str(temp_dir))
+    repo.init()
+
+    # Create a test file
+    test_file_path = temp_dir / "test_file.txt"
+    test_file_content = "test content"
+    test_file_path.write_text(test_file_content)
+
+    # Calculate the SHA-1 hash of the content
+    content_hash = calculate_sha1_hash(test_file_content.encode())
+
+    # Create the object file manually to simulate a previous commit
+    objects_dir = temp_dir / ".git" / "objects"
+    object_subdir = objects_dir / content_hash[:2]
+    object_subdir.mkdir(parents=True, exist_ok=True)
+    object_file = object_subdir / content_hash[2:]
+
+    # Write some content to the object file
+    with open(object_file, "wb") as f:
+        f.write(compress_content(test_file_content.encode()))
+
+    # Mock has_file_changed_since_commit to return False
+    # This will force the warning message in lines 227-228 to be executed
+    with patch(
+        "clony.internals.staging.has_file_changed_since_commit", return_value=False
+    ):
+        with patch("clony.internals.staging.logger.warning") as mock_logger_warning:
+            # Try to stage the file
+            stage_file(str(test_file_path))
+
+            # Verify that logger.warning was called with the correct message
+            # This covers lines 227-228 in staging.py
+            mock_logger_warning.assert_called_with(
+                f"File unchanged since last commit: '{str(test_file_path)}'"
+            )
+
+
+# Test for stage_file function when file hasn't changed after a commit
+# with content modification
+@pytest.mark.unit
+def test_stage_file_unchanged_after_commit_with_modification(temp_dir: pathlib.Path):
+    """
+    Test that a file cannot be staged after a commit if it hasn't changed,
+    even after the file was modified before the commit.
+    """
+    # Initialize a repository
+    repo = Repository(str(temp_dir))
+    repo.init()
+
+    # Create a test file
+    test_file_path = temp_dir / "test_file.txt"
+    test_file_path.write_text("initial content")
+
+    # Stage the file first time
+    stage_file(str(test_file_path))
+
+    # Modify the file and stage it again
+    test_file_path.write_text("modified content")
+    stage_file(str(test_file_path))
+
+    # Create a commit
+    with patch("clony.internals.commit.find_git_repo_path", return_value=temp_dir):
+        from clony.internals.commit import make_commit
+
+        make_commit("Initial commit", "Test Author", "test@example.com")
+
+    # Try to stage the same file again without changes
+    # This should fail because the file hasn't changed since the commit
+    with patch("clony.internals.staging.logger.warning") as mock_logger_warning:
+        stage_file(str(test_file_path))
+
+        # Verify that logger.warning was called with the correct message
+        mock_logger_warning.assert_called_with(
+            f"File unchanged since last commit: '{str(test_file_path)}'"
+        )
+
+    # Verify that the file is not in the staging area
+    index_file = temp_dir / ".git" / "index"
+    assert index_file.exists()
+    with open(index_file, "r") as f:
+        content = f.read()
+    assert content.strip() == ""

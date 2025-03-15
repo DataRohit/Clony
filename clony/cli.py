@@ -19,6 +19,7 @@ from rich.text import Text
 # Local imports
 from clony import __version__
 from clony.core.repository import Repository
+from clony.internals.commit import make_commit
 from clony.internals.staging import stage_file
 from clony.utils.logger import logger
 
@@ -263,8 +264,7 @@ def stage(path: str):
     This command prepares a file to be included in the next commit by
     creating a blob object from the file content and updating the index.
 
-    Args:
-        path (str): The path to the file to be staged.
+    The file path is required, while the file must exist before proceeding.
     """
 
     # Check if file exists before proceeding
@@ -274,3 +274,29 @@ def stage(path: str):
 
     # Stage the file using the staging module
     stage_file(path)
+
+
+# Commit command to create a new commit with staged changes
+@cli.command()
+@click.option("--message", "-m", required=True, help="The commit message.")
+@click.option("--author-name", default=None, help="The name of the author.")
+@click.option("--author-email", default=None, help="The email of the author.")
+def commit(message: str, author_name: str, author_email: str):
+    """Create a new commit with the staged changes.
+
+    This command creates a new commit object with the staged changes,
+    including a tree object representing the directory structure and
+    a reference to the parent commit.
+
+    The commit message is required, while author name and email are optional
+    and will default to "Clony User" and "user@example.com" if not provided.
+    """
+
+    # Set default author name and email if not provided
+    if not author_name:
+        author_name = "Clony User"
+    if not author_email:
+        author_email = "user@example.com"
+
+    # Create the commit using the commit module
+    make_commit(message, author_name, author_email)
