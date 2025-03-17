@@ -1,0 +1,48 @@
+# GitHub Actions workflow for Continuous Integration
+# This workflow runs automated tests and quality checks on the codebase
+name: CI
+
+# Trigger the workflow on push and pull request events, but only for the dev branch
+on:
+    push:
+        branches: [dev]
+    pull_request:
+        branches: [dev]
+
+jobs:
+    # Main test job that runs the test suite across multiple Python versions
+    test:
+        # Use latest Ubuntu runner for testing
+        runs-on: ubuntu-latest
+
+        # Test strategy configuration
+        strategy:
+            # Define test matrix for multiple Python versions
+            matrix:
+                # Test against Python 3.10 through 3.12 to ensure broad compatibility
+                python-version: ["3.10", "3.11", "3.12"]
+
+        steps:
+            # Step 1: Check out the repository code
+            - uses: actions/checkout@v3
+
+            # Step 2: Set up Python environment for the specified version
+            - name: Set up Python ${{ matrix.python-version }}
+              uses: actions/setup-python@v4
+              with:
+                  python-version: ${{ matrix.python-version }}
+
+            # Step 3: Install project dependencies including development requirements
+            - name: Install dependencies
+              run: |
+                  # Upgrade pip to latest version
+                  python -m pip install --upgrade pip
+                  # Install project in editable mode with dev dependencies
+                  python -m pip install -e ".[dev]"
+                  # Make the check script executable
+                  chmod +x run_checks.sh
+
+            # Step 4: Run the test suite and code quality checks
+            - name: Run checks
+              run: |
+                  ./run_checks.sh

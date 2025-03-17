@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "clony"
+version = "0.1.7"
+description = "🛠️ A modern Git clone tool with a colorful CLI interface. ✨ Clony provides intuitive Git commands with clear output, smart file staging, and flexible repository management."
+authors = [
+    {name = "Rohit Vilas Ingole", email = "rohit.vilas.ingole@gmail.com"}
+]
+readme = "readme.md"
+requires-python = ">=3.10"
+license = {file = "license"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "rich>=13.0.0",
+    "click>=8.0.0",
+    "colorlog>=6.8.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "ruff>=0.0.270",
+]
+
+[project.scripts]
+clony = "clony.cli:main"
+
+[tool.setuptools]
+packages = ["clony"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py38"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+addopts = "--cov=clony --cov-report=term-missing --cov-fail-under=100"
+
+[tool.coverage.run]
+source = ["clony"] 

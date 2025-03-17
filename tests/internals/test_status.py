@@ -1,0 +1,682 @@
+"""
+Tests for the status module.
+
+This module contains tests for the status functions.
+"""
+
+# Standard library imports
+import os
+import tempfile
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+# Third-party imports
+import pytest
+
+# Local imports
+from clony.internals.status import (
+    FileStatus,
+    format_status_output,
+    get_all_files,
+    get_commit_tree,
+    get_file_content_hash,
+    get_file_status,
+    get_repository_status,
+    get_staged_files,
+    get_status,
+    get_tracked_files,
+)
+
+
+# Test for the FileStatus enum
+@pytest.mark.unit
+def test_file_status_enum():
+    """
+    Test that the FileStatus enum has all the required statuses.
+    """
+
+    # Check that the enum has all the required statuses
+    assert hasattr(FileStatus, "UNMODIFIED")
+    assert hasattr(FileStatus, "MODIFIED")
+    assert hasattr(FileStatus, "STAGED_NEW")
+    assert hasattr(FileStatus, "STAGED_MODIFIED")
+    assert hasattr(FileStatus, "STAGED_DELETED")
+    assert hasattr(FileStatus, "UNTRACKED")
+    assert hasattr(FileStatus, "DELETED")
+    assert hasattr(FileStatus, "BOTH_MODIFIED")
+    assert hasattr(FileStatus, "BOTH_DELETED")
+
+
+# Test for get_file_content_hash function
+@pytest.mark.unit
+def test_get_file_content_hash():
+    """
+    Test calculating the hash of a file's content.
+    """
+
+    # Create a temporary file
+    with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+        # Write test content to the file
+        temp_file.write(b"test content")
+
+        # Get the path to the temporary file
+        temp_path = Path(temp_file.name)
+
+    try:
+        # Test with existing file
+        hash_value = get_file_content_hash(temp_path)
+        assert hash_value == "1eebdf4fdc9fc7bf283031b93f9aef3338de9052"
+
+        # Test with non-existent file
+        non_existent_path = Path("non_existent_file.txt")
+        hash_value = get_file_content_hash(non_existent_path)
+        assert hash_value == ""
+
+    finally:
+        # Clean up
+        os.unlink(temp_path)
+
+
+# Test for get_file_status function
+@pytest.mark.unit
+def test_get_file_status():
+    """
+    Test detecting untracked files.
+    """
+
+    # Define the file path, repository path, tracked files,
+    # staged files, and working directory files
+    file_path = "test.txt"
+    repo_path = Path("/repo")
+    tracked_files = {}
+    staged_files = {}
+    working_dir_files = {"test.txt"}
+
+    # Get the status of the file
+    status = get_file_status(
+        file_path, repo_path, tracked_files, staged_files, working_dir_files
+    )
+
+    # Check that the status is UNTRACKED
+    assert status == FileStatus.UNTRACKED
+
+
+# Test for get_file_status function
+@pytest.mark.unit
+def test_get_file_status_deleted():
+    """
+    Test detecting deleted files.
+    """
+
+    # Define the file path, repository path, tracked files,
+    # staged files, and working directory files
+    file_path = "test.txt"
+    repo_path = Path("/repo")
+    tracked_files = {"test.txt": "hash1"}
+    staged_files = {}
+    working_dir_files = set()
+
+    # Get the status of the file
+    status = get_file_status(
+        file_path, repo_path, tracked_files, staged_files, working_dir_files
+    )
+
+    # Check that the status is DELETED
+    assert status == FileStatus.DELETED
+
+
+# Test for get_file_status function
+@pytest.mark.unit
+def test_get_file_status_staged_new():
+    """
+    Test detecting newly staged files.
+    """
+
+    # Define the file path, repository path, tracked files,
+    # staged files, and working directory files
+    file_path = "test.txt"
+    repo_path = Path("/repo")
+    tracked_files = {}
+    staged_files = {"test.txt": "hash1"}
+    working_dir_files = {"test.txt"}
+
+    # Mock get_file_content_hash to return the same hash as in staged_files
+    with patch("clony.internals.status.get_file_content_hash", return_value="hash1"):
+        # Get the status of the file
+        status = get_file_status(
+            file_path, repo_path, tracked_files, staged_files, working_dir_files
+        )
+
+        # Check that the status is STAGED_NEW
+        assert status == FileStatus.STAGED_NEW
+
+
+# Test for get_file_status function
+@pytest.mark.unit
+def test_get_file_status_both_modified():
+    """
+    Test detecting files that are staged but then modified again.
+    """
+
+    # Define the file path, repository path, tracked files,
+    # staged files, and working directory files
+    file_path = "test.txt"
+    repo_path = Path("/repo")
+    tracked_files = {}
+    staged_files = {"test.txt": "hash1"}
+    working_dir_files = {"test.txt"}
+
+    # Mock get_file_content_hash to return a different hash than in staged_files
+    with patch("clony.internals.status.get_file_content_hash", return_value="hash2"):
+        # Get the status of the file
+        status = get_file_status(
+            file_path, repo_path, tracked_files, staged_files, working_dir_files
+        )
+
+        # Check that the status is BOTH_MODIFIED
+        assert status == FileStatus.BOTH_MODIFIED
+
+
+# Test for get_file_status function
+@pytest.mark.unit
+def test_get_file_status_staged_deleted():
+    """
+    Test detecting files that are staged for deletion.
+    """
+
+    # Define the file path, repository path, tracked files,
+    # staged files, and working directory files
+    file_path = "test.txt"
+    repo_path = Path("/repo")
+    tracked_files = {"test.txt": "hash1"}
+    staged_files = {"test.txt": "hash1"}
+    working_dir_files = set()
+
+    # Get the status of the file
+    status = get_file_status(
+        file_path, repo_path, tracked_files, staged_files, working_dir_files
+    )
+
+    # Check that the status is STAGED_DELETED
+    assert status == FileStatus.STAGED_DELETED
+
+
+# Test for get_file_status function
+@pytest.mark.unit
+def test_get_file_status_both_deleted():
+    """
+    Test detecting files that are staged but then deleted.
+    """
+
+    # Define the file path, repository path, tracked files,
+    # staged files, and working directory files
+    file_path = "test.txt"
+    repo_path = Path("/repo")
+    tracked_files = {}
+    staged_files = {"test.txt": "hash1"}
+    working_dir_files = set()
+
+    # Get the status of the file
+    status = get_file_status(
+        file_path, repo_path, tracked_files, staged_files, working_dir_files
+    )
+
+    # Check that the status is BOTH_DELETED
+    assert status == FileStatus.BOTH_DELETED
+
+
+# Test for get_file_status function
+@pytest.mark.unit
+def test_get_file_status_modified():
+    """
+    Test detecting modified files.
+    """
+
+    # Define the file path, repository path, tracked files,
+    # staged files, and working directory files
+    file_path = "test.txt"
+    repo_path = Path("/repo")
+    tracked_files = {"test.txt": "hash1"}
+    staged_files = {}
+    working_dir_files = {"test.txt"}
+
+    # Mock get_file_content_hash to return a different hash than in tracked_files
+    with patch("clony.internals.status.get_file_content_hash", return_value="hash2"):
+        # Get the status of the file
+        status = get_file_status(
+            file_path, repo_path, tracked_files, staged_files, working_dir_files
+        )
+
+        # Check that the status is MODIFIED
+        assert status == FileStatus.MODIFIED
+
+
+# Test for get_file_status function
+@pytest.mark.unit
+def test_get_file_status_staged_modified():
+    """
+    Test detecting files that are staged with modifications.
+    """
+
+    # Define the file path, repository path, tracked files,
+    # staged files, and working directory files
+    file_path = "test.txt"
+    repo_path = Path("/repo")
+    tracked_files = {"test.txt": "hash1"}
+    staged_files = {"test.txt": "hash2"}
+    working_dir_files = {"test.txt"}
+
+    # Mock get_file_content_hash to return the same hash as in staged_files
+    with patch("clony.internals.status.get_file_content_hash", return_value="hash2"):
+        # Get the status of the file
+        status = get_file_status(
+            file_path, repo_path, tracked_files, staged_files, working_dir_files
+        )
+
+        # Check that the status is STAGED_MODIFIED
+        assert status == FileStatus.STAGED_MODIFIED
+
+
+# Test for get_file_status function
+@pytest.mark.unit
+def test_get_file_status_unmodified():
+    """
+    Test detecting unmodified files.
+    """
+
+    # Define the file path, repository path, tracked files,
+    # staged files, and working directory files
+    file_path = "test.txt"
+    repo_path = Path("/repo")
+    tracked_files = {"test.txt": "hash1"}
+    staged_files = {}
+    working_dir_files = {"test.txt"}
+
+    # Mock get_file_content_hash to return the same hash as in tracked_files
+    with patch("clony.internals.status.get_file_content_hash", return_value="hash1"):
+        # Get the status of the file
+        status = get_file_status(
+            file_path, repo_path, tracked_files, staged_files, working_dir_files
+        )
+
+        # Check that the status is UNMODIFIED
+        assert status == FileStatus.UNMODIFIED
+
+
+# Test for format_status_output function
+@pytest.mark.unit
+def test_format_status_output():
+    """
+    Test formatting the status output.
+    """
+
+    # Define the status dictionary
+    status_dict = {
+        FileStatus.UNMODIFIED: [],
+        FileStatus.MODIFIED: ["modified.txt"],
+        FileStatus.STAGED_NEW: ["new.txt"],
+        FileStatus.STAGED_MODIFIED: ["staged_modified.txt"],
+        FileStatus.STAGED_DELETED: ["staged_deleted.txt"],
+        FileStatus.UNTRACKED: ["untracked.txt"],
+        FileStatus.DELETED: ["deleted.txt"],
+        FileStatus.BOTH_MODIFIED: ["both_modified.txt"],
+        FileStatus.BOTH_DELETED: ["both_deleted.txt"],
+    }
+
+    # Format the status output
+    output = format_status_output(status_dict)
+
+    # Check that the output contains all the expected sections and files
+    assert "Changes to be committed:" in output
+    assert "new file:   new.txt" in output
+    assert "modified:   staged_modified.txt" in output
+    assert "deleted:    staged_deleted.txt" in output
+
+    assert "Changes not staged for commit:" in output
+    assert "modified:   modified.txt" in output
+    assert "deleted:    deleted.txt" in output
+    assert "modified:   both_modified.txt" in output
+    assert "deleted:    both_deleted.txt" in output
+
+    assert "Untracked files:" in output
+    assert "untracked.txt" in output
+
+
+# Test for get_repository_status function
+@pytest.mark.unit
+def test_get_repository_status():
+    """
+    Test getting the status of all files in the repository.
+    """
+
+    # Mock the necessary functions
+    with patch(
+        "clony.internals.status.find_git_repo_path", return_value=Path("/repo")
+    ), patch(
+        "clony.internals.status.get_tracked_files",
+        return_value={"tracked.txt": "hash1"},
+    ), patch(
+        "clony.internals.status.get_staged_files", return_value={"staged.txt": "hash2"}
+    ), patch(
+        "clony.internals.status.get_all_files", return_value={"working.txt"}
+    ), patch(
+        "clony.internals.status.get_file_status", return_value=FileStatus.UNMODIFIED
+    ):
+
+        # Get the status of the repository
+        status_dict = get_repository_status("/repo")
+
+        # Check that get_file_status was called for each file
+        assert len(status_dict[FileStatus.UNMODIFIED]) == 3
+
+
+# Test for get_status function
+@pytest.mark.unit
+def test_get_status():
+    """
+    Test the main get_status function.
+    """
+
+    # Define the status dictionary
+    status_dict = {status: [] for status in FileStatus}
+    status_dict[FileStatus.MODIFIED] = ["modified.txt"]
+
+    # Mock the necessary functions
+    with patch(
+        "clony.internals.status.get_repository_status", return_value=status_dict
+    ), patch(
+        "clony.internals.status.format_status_output", return_value="Formatted output"
+    ):
+
+        # Get the status of the repository
+        result_dict, formatted_output = get_status(".")
+
+        # Check that the result contains the expected values
+        assert result_dict == status_dict
+        assert formatted_output == "Formatted output"
+
+
+# Test for get_commit_tree function
+@pytest.mark.unit
+def test_get_commit_tree():
+    """
+    Test getting the file tree from a commit.
+    """
+
+    # Define the repository path
+    repo_path = Path("/repo")
+
+    # Test with empty commit hash
+    result = get_commit_tree(repo_path, "")
+    assert result == {}
+
+    # Test with non-existent commit file
+    with patch("pathlib.Path.exists", return_value=False):
+        result = get_commit_tree(repo_path, "abcdef")
+        assert result == {}
+
+    # Test with existing HEAD_TREE file
+    with patch("pathlib.Path.exists", side_effect=[True, True]), patch(
+        "clony.internals.status.read_index_file", return_value={"file.txt": "hash1"}
+    ):
+        result = get_commit_tree(repo_path, "abcdef")
+        assert result == {"file.txt": "hash1"}
+
+    # Test with exception
+    with patch("pathlib.Path.exists", side_effect=[True, True]), patch(
+        "clony.internals.status.read_index_file", side_effect=Exception("Test error")
+    ):
+        result = get_commit_tree(repo_path, "abcdef")
+        assert result == {}
+
+
+# Test for get_tracked_files function
+@pytest.mark.unit
+def test_get_tracked_files():
+    """
+    Test getting all tracked files from the last commit.
+    """
+
+    # Define the repository path
+    repo_path = Path("/repo")
+
+    # Test with get_head_commit returning a commit hash
+    with patch("clony.internals.status.get_head_commit", return_value="abcdef"), patch(
+        "clony.internals.status.get_commit_tree", return_value={"file.txt": "hash1"}
+    ):
+        result = get_tracked_files(repo_path)
+        assert result == {"file.txt": "hash1"}
+
+
+# Test for get_staged_files function
+@pytest.mark.unit
+def test_get_staged_files():
+    """
+    Test getting all staged files from the index.
+    """
+
+    # Define the repository path
+    repo_path = Path("/repo")
+
+    # Test with read_index_file returning staged files
+    with patch(
+        "clony.internals.status.read_index_file", return_value={"file.txt": "hash1"}
+    ):
+        result = get_staged_files(repo_path)
+        assert result == {"file.txt": "hash1"}
+
+
+# Test for get_all_files function
+@pytest.mark.unit
+def test_get_all_files():
+    """
+    Test getting all files in the repository.
+    """
+
+    # Define the repository path
+    repo_path = Path("/repo")
+
+    # Mock os.walk to return some files
+    mock_walk_data = [
+        ("/repo", ["dir1", ".git"], ["file1.txt"]),
+        ("/repo/dir1", [], ["file2.txt"]),
+        ("/repo/.git", [], ["HEAD"]),
+    ]
+
+    # Mock the os.walk function
+    with patch("os.walk", return_value=mock_walk_data), patch(
+        "pathlib.Path.relative_to", side_effect=["file1.txt", "dir1/file2.txt"]
+    ):
+        result = get_all_files(repo_path)
+        assert "file1.txt" in result
+        assert "dir1/file2.txt" in result
+        assert len(result) == 2
+
+
+# Test for get_repository_status function
+@pytest.mark.unit
+def test_get_repository_status_not_git_repo():
+    """
+    Test get_repository_status with a non-git repository.
+    """
+
+    # Mock the find_git_repo_path function
+    with patch("clony.internals.status.find_git_repo_path", return_value=None):
+        result = get_repository_status("/not-a-repo")
+        assert result == {}
+
+
+# Test for get_repository_status function
+@pytest.mark.unit
+def test_get_repository_status_exception():
+    """
+    Test get_repository_status with an exception.
+    """
+
+    # Mock the find_git_repo_path function
+    with patch(
+        "clony.internals.status.find_git_repo_path", side_effect=Exception("Test error")
+    ):
+        result = get_repository_status("/repo")
+        assert result == {}
+
+
+# Test for format_status_output function
+@pytest.mark.unit
+def test_format_status_output_empty():
+    """
+    Test formatting the status output with empty status.
+    """
+
+    # Define the status dictionary
+    status_dict = {status: [] for status in FileStatus}
+
+    # Format the status output
+    output = format_status_output(status_dict)
+
+    # Check that the output contains the expected message
+    assert "nothing to commit, working tree clean" in output
+
+
+# Test for get_commit_tree function
+@pytest.mark.unit
+def test_get_commit_tree_with_error_handling():
+    """
+    Test error handling in get_commit_tree function.
+    """
+
+    # Define the repository path
+    repo_path = Path("/repo")
+    commit_hash = "abcdef"
+
+    # Test with commit file not existing
+    with patch("pathlib.Path.exists", side_effect=[True, False]):
+        result = get_commit_tree(repo_path, commit_hash)
+        assert result == {}
+
+
+# Test for get_file_content_hash function
+@pytest.mark.unit
+def test_get_file_content_hash_with_error():
+    """
+    Test error handling in get_file_content_hash function.
+    """
+
+    # Define the file path
+    file_path = Path("/repo/file.txt")
+
+    # Test with file opening raising an exception
+    with patch("builtins.open", side_effect=Exception("Test error")):
+        # Just verify that the function returns an empty string on error
+        result = get_file_content_hash(file_path)
+        assert result == ""
+
+
+# Test for get_file_status function
+@pytest.mark.unit
+def test_get_file_status_edge_cases():
+    """
+    Test edge cases in get_file_status function.
+    """
+
+    # Define the file path
+    file_path = "test.txt"
+    repo_path = Path("/repo")
+
+    # Test with file that is tracked, staged, and exists (but with different hashes)
+    tracked_files = {"test.txt": "hash1"}
+    staged_files = {"test.txt": "hash2"}
+    working_dir_files = {"test.txt"}
+
+    # Mock get_file_content_hash to return a hash different from both tracked and staged
+    with patch("clony.internals.status.get_file_content_hash", return_value="hash3"):
+        status = get_file_status(
+            file_path, repo_path, tracked_files, staged_files, working_dir_files
+        )
+        assert status == FileStatus.BOTH_MODIFIED
+
+
+# Test for get_commit_tree function
+@pytest.mark.unit
+def test_get_commit_tree_with_head_tree():
+    """
+    Test get_commit_tree with HEAD_TREE file.
+    """
+
+    # Define the repository path
+    repo_path = Path("/repo")
+    commit_hash = "abcdef"
+
+    # Test with HEAD_TREE file existing and readable
+    with patch("pathlib.Path.exists", side_effect=[True, True, True]), patch(
+        "clony.internals.status.read_index_file", return_value={"file.txt": "hash1"}
+    ):
+        result = get_commit_tree(repo_path, commit_hash)
+        assert result == {"file.txt": "hash1"}
+
+
+# Test for get_file_content_hash function
+@pytest.mark.unit
+def test_get_file_content_hash_exception_path():
+    """
+    Test the exception path in get_file_content_hash.
+    """
+
+    # Create a Path object that will raise an exception when accessed
+    file_path = MagicMock(spec=Path)
+    file_path.exists.return_value = True
+    file_path.is_file.return_value = True
+    file_path.__str__.return_value = "/repo/file.txt"
+
+    # Make open raise an exception
+    with patch("builtins.open", side_effect=Exception("Test error")):
+        # Call the function
+        result = get_file_content_hash(file_path)
+
+        # Verify the result
+        assert result == ""
+
+
+# Test for get_commit_tree function
+@pytest.mark.unit
+def test_get_commit_tree_with_head_tree_error():
+    """
+    Test get_commit_tree with HEAD_TREE file that raises an error when read.
+    """
+
+    # Define the repository path
+    repo_path = Path("/repo")
+    commit_hash = "abcdef"
+
+    # Test with HEAD_TREE file existing but raising an error when read
+    with patch("pathlib.Path.exists", side_effect=[True, True]), patch(
+        "clony.internals.status.read_index_file", side_effect=Exception("Test error")
+    ), patch("clony.internals.status.logger.error") as mock_logger:
+        result = get_commit_tree(repo_path, commit_hash)
+        assert result == {}
+        # Verify that the error was logged
+        mock_logger.assert_called_with("Error reading HEAD_TREE file: Test error")
+
+
+# Test for get_commit_tree function
+@pytest.mark.unit
+def test_get_commit_tree_exception_handling():
+    """
+    Test exception handling in the get_commit_tree function.
+    """
+
+    # Define the commit hash
+    commit_hash = "abcdef"
+
+    # Create a mock path that will raise an exception when accessed
+    mock_path = MagicMock(spec=Path)
+    mock_path.__truediv__.side_effect = Exception("Test error")
+
+    # Mock the logger
+    with patch("clony.internals.status.logger.error") as mock_logger:
+        # Call the function with our mocked path
+        result = get_commit_tree(mock_path, commit_hash)
+
+        # Verify the result and that the error was logged
+        assert result == {}
+        mock_logger.assert_called_with("Error reading commit tree: Test error")

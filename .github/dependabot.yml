@@ -1,0 +1,42 @@
+# Dependabot configuration file for automated dependency updates
+# This configuration enables automated security and version updates for pip packages and GitHub Actions
+version: 2
+
+updates:
+    # Configuration for Python (pip) dependencies
+    - package-ecosystem: "pip"
+
+      # Look for requirements files in the root directory
+      directory: "/"
+      schedule:
+          # Check for updates once per week
+          interval: "weekly"
+
+      # Create pull requests against the dev branch
+      target-branch: "dev"
+
+      # Add labels to created pull requests for easy identification
+      labels:
+          - "dependencies"
+
+      # Limit the number of open pull requests to prevent overwhelming maintainers
+      open-pull-requests-limit: 10
+
+    # Configuration for GitHub Actions workflow dependencies
+    - package-ecosystem: "github-actions"
+      # Look for workflow files in the root directory
+      directory: "/"
+      schedule:
+          # Check for updates once per month (actions are typically more stable)
+          interval: "monthly"
+
+      # Create pull requests against the dev branch
+      target-branch: "dev"
+
+      # Add specific labels for GitHub Actions updates
+      labels:
+          - "dependencies"
+          - "github-actions"
+
+      # Lower limit for actions as they change less frequently
+      open-pull-requests-limit: 5
