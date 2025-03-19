@@ -134,3 +134,32 @@ def test_commit_command_no_message(temp_dir: pathlib.Path):
     result = runner.invoke(cli, ["commit"])
     assert result.exit_code != 0
     assert "Error: Missing option '--message' / '-m'." in result.output
+
+
+# Test for the commit command with an error
+@pytest.mark.cli
+def test_commit_command_error(temp_dir: pathlib.Path):
+    """
+    Test the commit command when an error occurs.
+
+    Args:
+        temp_dir: Path to the temporary directory.
+    """
+
+    # Initialize a git repository in the temp directory
+    runner = CliRunner()
+    result = runner.invoke(cli, ["init", str(temp_dir)])
+    assert result.exit_code == 0
+
+    # Mock make_commit to raise an exception
+    with patch("clony.cli.make_commit", side_effect=Exception("Test error")):
+        # Mock the logger.error function to track calls
+        with patch("clony.cli.logger.error") as mock_logger:
+            # Run the commit command
+            result = runner.invoke(cli, ["commit", "--message", "Test commit message"])
+
+            # Verify that the command failed
+            assert result.exit_code == 1
+
+            # Verify that logger.error was called with the correct error message
+            mock_logger.assert_called_once_with("Error creating commit: Test error")

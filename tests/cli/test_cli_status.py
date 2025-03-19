@@ -47,28 +47,34 @@ def temp_dir() -> Generator[pathlib.Path, None, None]:
         shutil.rmtree(temp_path, ignore_errors=True)
 
 
-# Test for the status command
+# Test for the status command with tabular output
 @pytest.mark.cli
-def test_status_command(temp_dir: pathlib.Path):
+def test_status_command_tabular_output(temp_dir: pathlib.Path):
     """
-    Test that the status command works correctly.
-    """
+    Test that the status command with tabular output works correctly.
 
+    This test verifies that the status command correctly displays repository
+    status in tabular format using the display_status_info function.
+
+    Args:
+        temp_dir: Path to the temporary directory.
+    """
     # Create a test file
     test_file = temp_dir / "test.txt"
     with open(test_file, "w") as f:
         f.write("Test content")
 
-    # Mock the get_status function to return a known status
+    # Create a mock status dictionary
     status_dict = {status: [] for status in FileStatus}
     status_dict[FileStatus.UNTRACKED] = ["test.txt"]
-    formatted_output = (
-        "Untracked files:\n"
-        '  (use "git add <file>..." to include in what will be committed)\n\n'
-        "        test.txt\n"
-    )
 
-    with patch("clony.cli.get_status", return_value=(status_dict, formatted_output)):
+    # Mock the get_status function and display_status_info
+    with (
+        patch(
+            "clony.cli.get_status", return_value=(status_dict, "")
+        ) as mock_get_status,
+        patch("clony.internals.status.display_status_info") as mock_display,
+    ):
         # Run the status command
         runner = CliRunner()
         result = runner.invoke(cli, ["status", str(temp_dir)])
@@ -76,10 +82,11 @@ def test_status_command(temp_dir: pathlib.Path):
         # Check that the command was successful
         assert result.exit_code == 0
 
-        # Check that the output contains the expected status
-        assert "On branch main" in result.output
-        assert "Untracked files:" in result.output
-        assert "test.txt" in result.output
+        # Verify that get_status was called with the correct path
+        mock_get_status.assert_called_once_with(str(temp_dir))
+
+        # Verify that display_status_info was called with the status dictionary
+        mock_display.assert_called_once_with(status_dict)
 
 
 # Test for the status command with the default path
@@ -87,14 +94,20 @@ def test_status_command(temp_dir: pathlib.Path):
 def test_status_command_default_path():
     """
     Test that the status command works with the default path.
+
+    This test verifies that the status command correctly uses the default path
+    and displays the status in tabular format.
     """
-
-    # Mock the get_status function to return a known status
+    # Create a mock status dictionary
     status_dict = {status: [] for status in FileStatus}
-    status_dict[FileStatus.UNMODIFIED] = []
-    formatted_output = "nothing to commit, working tree clean"
 
-    with patch("clony.cli.get_status", return_value=(status_dict, formatted_output)):
+    # Mock the get_status function and display_status_info
+    with (
+        patch(
+            "clony.cli.get_status", return_value=(status_dict, "")
+        ) as mock_get_status,
+        patch("clony.internals.status.display_status_info") as mock_display,
+    ):
         # Run the status command with no path argument
         runner = CliRunner()
         result = runner.invoke(cli, ["status"])
@@ -102,9 +115,11 @@ def test_status_command_default_path():
         # Check that the command was successful
         assert result.exit_code == 0
 
-        # Check that the output contains the expected status
-        assert "On branch main" in result.output
-        assert "nothing to commit, working tree clean" in result.output
+        # Verify that get_status was called with the default path
+        mock_get_status.assert_called_once_with(".")
+
+        # Verify that display_status_info was called with the status dictionary
+        mock_display.assert_called_once_with(status_dict)
 
 
 # Test for the status command with an error
@@ -112,17 +127,55 @@ def test_status_command_default_path():
 def test_status_command_error():
     """
     Test that the status command handles errors correctly.
-    """
 
+    This test verifies that the status command properly handles and reports
+    errors that occur during execution.
+    """
     # Mock the get_status function to raise an exception
     with patch("clony.cli.get_status", side_effect=Exception("Test error")):
-        # Run the status command
+        # Mock the logger.error function to track calls
+        with patch("clony.cli.logger.error") as mock_logger:
+            # Run the status command
+            runner = CliRunner()
+            result = runner.invoke(cli, ["status"])
+
+            # Check that the command failed
+            assert result.exit_code == 1
+
+            # Check that logger.error was called with the correct error message
+            mock_logger.assert_called_once_with("Error showing status: Test error")
+
+
+@pytest.mark.cli
+def test_status_command():
+    """
+    Test the status command.
+
+    This test verifies that the status command correctly calls the get_status
+    and display_status_info functions, and displays the appropriate branch information.
+    """
+    # Create a mock status dictionary
+    status_dict = {status: [] for status in FileStatus}
+
+    with (
+        patch(
+            "clony.cli.get_status", return_value=(status_dict, "")
+        ) as mock_get_status,
+        patch("clony.internals.status.display_status_info") as mock_display,
+        patch("clony.cli.logger.info") as mock_logger_info,
+    ):
+        # Call the status command
         runner = CliRunner()
         result = runner.invoke(cli, ["status"])
 
-        # Check that the command failed
-        assert result.exit_code == 1
+        # Verify the result
+        assert result.exit_code == 0
 
-        # Check that the output contains the error message
-        assert "Error:" in result.output
-        assert "Test error" in result.output
+        # Verify that get_status was called with the correct path
+        mock_get_status.assert_called_once_with(".")
+
+        # Verify that display_status_info was called with the status dictionary
+        mock_display.assert_called_once_with(status_dict)
+
+        # Verify that branch information was logged
+        mock_logger_info.assert_any_call("On branch main")

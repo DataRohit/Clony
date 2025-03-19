@@ -10,8 +10,14 @@ import sys
 import zlib
 from pathlib import Path
 
+from rich.console import Console
+from rich.table import Table
+
 # Local imports
 from clony.utils.logger import logger
+
+# Initialize console for Rich
+console = Console()
 
 
 # Function to find the .git repository path
@@ -180,15 +186,13 @@ def stage_file(file_path: str) -> None:
     """
     Stage a file by creating a blob object and updating the index.
 
+    This function creates a blob object from the file content, adds it to the
+    Git objects directory, and updates the index to track the staging. It also
+    displays the staging information in a tabular format.
+
     Args:
         file_path (str): Path to the file to stage.
-
-    Returns:
-        tuple[bool, str]: A tuple containing:
-            - bool: True if staging was successful, False otherwise
-            - str: Success message or error message
     """
-
     try:
         # Convert file path to Path object
         file_path_obj = Path(file_path)
@@ -217,8 +221,9 @@ def stage_file(file_path: str) -> None:
 
         # Check if the file is already staged
         if is_file_already_staged(index_file, str(file_path_obj), sha1_hash):
-            # If the file is already staged, return error
+            # If the file is already staged, show staging info with UNCHANGED status
             logger.warning(f"File already staged: '{file_path}'")
+            display_staging_info(file_path, sha1_hash, "UNCHANGED")
             return
 
         # Check if the object file exists in the objects directory
@@ -229,6 +234,7 @@ def stage_file(file_path: str) -> None:
         # If the object file exists, the file hasn't changed since the last commit
         if object_file.exists():
             logger.warning(f"File unchanged since last commit: '{file_path}'")
+            display_staging_info(file_path, sha1_hash, "UNCHANGED")
             return
 
         # Ensure objects directory exists
@@ -246,8 +252,11 @@ def stage_file(file_path: str) -> None:
         # Log the successful staging of the file
         logger.info(f"File staged: '{file_path}'")
 
+        # Display staging info with STAGED status
+        display_staging_info(file_path, sha1_hash, "STAGED")
+
     except Exception as e:
-        # Log the error and return error message
+        # Log the error and exit
         logger.error(f"Error staging file: {e}")
         sys.exit(1)
 
@@ -342,3 +351,33 @@ def has_file_changed_since_commit(
         # If there's an error, assume the file has changed
         logger.debug(f"Error checking if file has changed: {e}")
         return True
+
+
+# Function to display staging information in a tabular format
+def display_staging_info(file_path: str, file_hash: str, status: str) -> None:
+    """
+    Display staging information in a formatted table.
+
+    This function creates and displays a formatted table showing details of
+    the staging operation, including file path, hash, and status.
+
+    Args:
+        file_path (str): The path of the staged file.
+        file_hash (str): The hash of the staged file content.
+        status (str): The status of the staging operation (e.g., "STAGED", "UNCHANGED").
+    """
+    # Create a table for displaying staging information
+    table = Table(title="Staging Results")
+
+    # Add columns to the table
+    table.add_column("File Path", style="cyan")
+    table.add_column("Status", style="yellow")
+    table.add_column("Content Hash", style="green")
+
+    # Add the staging information to the table
+    table.add_row(
+        file_path, status, file_hash[:8]  # Use only the first 8 characters of the hash
+    )
+
+    # Display the staging information table
+    console.print(table)

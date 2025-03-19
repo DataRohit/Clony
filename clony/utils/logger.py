@@ -1,69 +1,96 @@
 """
 Logging configuration for Clony.
 
-This module provides colorful logging functionality using colorlog.
+This module provides rich colorful logging functionality using the Rich library.
 """
 
 # Standard library imports
 import logging
 import sys
-from typing import Optional
+from typing import Optional, Union
 
-from colorama import Fore, Style, init
+# Third-party imports
+from rich.console import Console
+from rich.logging import RichHandler
+from rich.theme import Theme
 
-# Initialize colorama
-init(strip=False, convert=True, autoreset=False)
+
+# Helper function to remove handlers - this allows for better testing
+def _remove_handlers(logger_instance: logging.Logger) -> None:
+    """
+    Remove all handlers from a logger instance.
+
+    Args:
+        logger_instance: The logger instance to remove handlers from.
+    """
+    for handler in logger_instance.handlers[:]:
+        logger_instance.removeHandler(handler)
+
+
+# Define custom theme with colors for different log levels
+custom_theme = Theme(
+    {
+        "info": "green",
+        "warning": "yellow",
+        "error": "red",
+        "debug": "dim blue",
+    }
+)
+
+# Initialize Rich console with custom theme
+console = Console(theme=custom_theme)
 
 # Create a custom logger
 logger = logging.getLogger("clony")
 logger.setLevel(logging.INFO)
 
-# Create handlers - only use one handler to avoid duplicates
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.INFO)
+# Remove any existing handlers to avoid duplicates
+_remove_handlers(logger)
 
+# Create Rich handler for colorful output
+rich_handler = RichHandler(
+    console=console,
+    show_path=False,
+    omit_repeated_times=True,
+    rich_tracebacks=True,
+    tracebacks_show_locals=True,
+)
+# Set handler level to match logger level
+rich_handler.setLevel(logger.level)
 
-# Create formatters and add it to handlers
-class ColorFormatter(logging.Formatter):
-    def format(self, record):
-        if record.levelno == logging.INFO:
-            prefix = f"{Fore.GREEN}INFO{Style.RESET_ALL}"
-        elif record.levelno == logging.WARNING:
-            prefix = f"{Fore.YELLOW}WARNING{Style.RESET_ALL}"
-        elif record.levelno == logging.ERROR:
-            prefix = f"{Fore.RED}ERROR{Style.RESET_ALL}"
-        else:
-            prefix = f"{Style.RESET_ALL}DEBUG{Style.RESET_ALL}"
+# Set the formatter for the handler
+formatter = logging.Formatter("%(message)s")
+rich_handler.setFormatter(formatter)
 
-        # Format the message with the appropriate prefix
-        record.msg = f"{prefix} {record.msg}"
-        return super().format(record)
-
-
-formatter = ColorFormatter("%(message)s")
-console_handler.setFormatter(formatter)
-
-# Add handlers to the logger
-logger.addHandler(console_handler)
+# Add handler to the logger
+logger.addHandler(rich_handler)
 
 # Set propagate to True in test environments to allow caplog to capture messages
+# This enables capturing log output during tests
 if "pytest" in sys.modules:
     logger.propagate = True
 else:
     logger.propagate = False
 
 
-def setup_logger(name: str = "clony", level: Optional[str] = None) -> logging.Logger:
+# Setup logger
+def setup_logger(
+    name: str = "clony", level: Optional[Union[str, int]] = None
+) -> logging.Logger:
     """
-    Set up a colorful logger instance.
+    Set up a Rich-powered colorful logger instance.
+
+    This function creates or retrieves a logger with Rich formatting for
+    beautiful, readable console output with proper color coding by log level.
 
     Args:
         name: The name of the logger. Defaults to "clony".
-        level: The logging level. Defaults to INFO if None.
+        level: The logging level as string or int. Defaults to INFO if None.
 
     Returns:
-        logging.Logger: A configured logger instance.
+        logging.Logger: A configured logger instance with Rich formatting.
     """
+
     # Return the existing logger if it's already set up
     if name == "clony":
         return logger
@@ -71,12 +98,31 @@ def setup_logger(name: str = "clony", level: Optional[str] = None) -> logging.Lo
     # Create a new logger instance
     new_logger = logging.getLogger(name)
 
-    # Set the logging level
-    log_level = getattr(logging, level.upper()) if level else logging.INFO
+    # Remove any existing handlers to avoid duplicates
+    _remove_handlers(new_logger)
+
+    # Set the logging level - handle both string and integer level values
+    if level is None:
+        log_level = logging.INFO
+    elif isinstance(level, str):
+        log_level = getattr(logging, level.upper())
+    else:
+        # If it's already an integer level value, use it directly
+        log_level = level
+
     new_logger.setLevel(log_level)
 
-    # Add the same handlers as the main logger
-    new_logger.addHandler(console_handler)
+    # Create a new Rich handler for this logger with matching level
+    new_handler = RichHandler(
+        console=console,
+        show_path=False,
+        omit_repeated_times=True,
+        rich_tracebacks=True,
+        tracebacks_show_locals=True,
+    )
+    new_handler.setLevel(log_level)
+    new_handler.setFormatter(formatter)
+    new_logger.addHandler(new_handler)
 
     # Set propagate based on environment
     if "pytest" in sys.modules:
@@ -84,4 +130,5 @@ def setup_logger(name: str = "clony", level: Optional[str] = None) -> logging.Lo
     else:
         new_logger.propagate = False
 
+    # Return the new logger
     return new_logger

@@ -18,7 +18,7 @@ import pytest
 # Local imports
 from clony.core.refs import get_head_commit, get_ref_hash
 from clony.core.repository import Repository
-from clony.internals.commit import make_commit, read_index_file
+from clony.internals.commit import display_commit_info, make_commit, read_index_file
 from clony.internals.staging import stage_file
 
 
@@ -335,26 +335,23 @@ def test_make_commit_updates_head_tree(tmp_path):
     repo_path.mkdir()
 
     # Mock the necessary functions
-    with patch(
-        "clony.internals.commit.find_git_repo_path", return_value=repo_path
-    ), patch(
-        "clony.internals.commit.read_index_file",
-        side_effect=[
-            {"test.txt": "hash1"},
-            {"existing.txt": "hash2"},
-        ],
-    ), patch(
-        "clony.internals.commit.create_tree_object", return_value="tree_hash"
-    ), patch(
-        "clony.internals.commit.get_head_commit", return_value="parent_hash"
-    ), patch(
-        "clony.internals.commit.create_commit_object", return_value="commit_hash"
-    ), patch(
-        "clony.internals.commit.get_head_ref", return_value="refs/heads/main"
-    ), patch(
-        "clony.internals.commit.update_ref"
-    ), patch(
-        "clony.internals.commit.clear_staging_area"
+    with (
+        patch("clony.internals.commit.find_git_repo_path", return_value=repo_path),
+        patch(
+            "clony.internals.commit.read_index_file",
+            side_effect=[
+                {"test.txt": "hash1"},
+                {"existing.txt": "hash2"},
+            ],
+        ),
+        patch("clony.internals.commit.create_tree_object", return_value="tree_hash"),
+        patch("clony.internals.commit.get_head_commit", return_value="parent_hash"),
+        patch(
+            "clony.internals.commit.create_commit_object", return_value="commit_hash"
+        ),
+        patch("clony.internals.commit.get_head_ref", return_value="refs/heads/main"),
+        patch("clony.internals.commit.update_ref"),
+        patch("clony.internals.commit.clear_staging_area"),
     ):
 
         # Create the .git directory
@@ -380,3 +377,23 @@ def test_make_commit_updates_head_tree(tmp_path):
         # Verify that both the existing and new files are in the HEAD_TREE file
         assert "test.txt hash1" in content
         assert "existing.txt hash2" in content
+
+
+@pytest.mark.unit
+def test_display_commit_info_error():
+    """
+    Test that display_commit_info handles errors correctly.
+    """
+    # Mock the console.print to raise an exception
+    with patch(
+        "clony.internals.commit.console.print", side_effect=Exception("Test error")
+    ):
+        # Mock the logger.error function to track calls
+        with patch("clony.internals.commit.logger.error") as mock_logger:
+            # Call the display_commit_info function
+            display_commit_info("commit_hash", "message", "author_name", "author_email")
+
+            # Verify that logger.error was called with the correct error message
+            mock_logger.assert_called_once_with(
+                "Error displaying commit information: Test error"
+            )
