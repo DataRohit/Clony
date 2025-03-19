@@ -45,17 +45,17 @@ def test_main_exception():
 
     # Mock the cli function
     with patch("clony.cli.cli", side_effect=Exception("Test error")):
-        # Mock the console.print function
-        with patch("clony.cli.console.print") as mock_print:
+        # Mock the logger.error function
+        with patch("clony.cli.logger.error") as mock_logger:
             # Mock the sys.exit function
             with patch("sys.exit") as mock_exit:
                 # Run the main function
                 main()
 
-                # Assert that the console.print function was called once
-                mock_print.assert_called_once()
+                # Assert that the logger.error function was called once
+                mock_logger.assert_called_once_with("Error: Test error")
 
-                # Assert that the sys.exit function was called once with 1
+                # Assert that sys.exit was called once with a non-zero exit code
                 mock_exit.assert_called_once_with(1)
 
 

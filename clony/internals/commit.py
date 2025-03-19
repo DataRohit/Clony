@@ -8,11 +8,18 @@ This module handles the commit functionality for the Clony Git clone tool.
 import sys
 from pathlib import Path
 
+# Third-party imports
+from rich.console import Console
+from rich.table import Table
+
 # Local imports
 from clony.core.objects import create_commit_object, create_tree_object
 from clony.core.refs import get_head_commit, get_head_ref, update_ref
 from clony.internals.staging import clear_staging_area, find_git_repo_path
 from clony.utils.logger import logger
+
+# Create a console for rich text output
+console = Console()
 
 
 # Function to read the index file
@@ -50,6 +57,39 @@ def read_index_file(index_file: Path) -> dict:
 
     # Return the dictionary
     return index_dict
+
+
+# Function to display commit information in a tabular format
+def display_commit_info(
+    commit_hash: str, message: str, author_name: str, author_email: str
+) -> None:
+    """
+    Display commit information in a tabular format.
+
+    Args:
+        commit_hash (str): The SHA-1 hash of the commit.
+        message (str): The commit message.
+        author_name (str): The name of the author.
+        author_email (str): The email of the author.
+    """
+    try:
+        # Create a table for commit information
+        table = Table(title="Commit Information")
+
+        # Add columns to the table
+        table.add_column("Commit Hash", style="cyan")
+        table.add_column("Author", style="green")
+        table.add_column("Message", style="white")
+
+        # Add the commit information to the table
+        table.add_row(commit_hash[:7], f"{author_name} <{author_email}>", message)
+
+        # Display the table
+        console.print(table)
+
+    except Exception as e:
+        # Log the error
+        logger.error(f"Error displaying commit information: {str(e)}")
 
 
 # Function to create a commit
@@ -131,12 +171,11 @@ def make_commit(message: str, author_name: str, author_email: str) -> str:
         # Log the successful commit
         logger.debug(f"Updated HEAD_TREE file with {len(tracked_files)} files")
 
-        # Log the successful commit
-        logger.info(f"Created commit {commit_hash[:7]} with message: {message}")
+        # Display commit information in tabular format
+        display_commit_info(commit_hash, message, author_name, author_email)
 
         # Clear the staging area after successful commit
         clear_staging_area(repo_path)
-        logger.info("Staging area cleared")
 
         # Return the commit hash
         return commit_hash

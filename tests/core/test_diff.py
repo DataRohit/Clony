@@ -18,10 +18,12 @@ from unittest.mock import patch
 
 # Third-party imports
 import pytest
+from colorama import Fore
 
 # Local imports
 from clony.core.diff import (
     colorize_diff_line,
+    colorize_unified_diff_line,
     diff_blobs,
     generate_unified_diff,
     is_binary_content,
@@ -254,6 +256,89 @@ def test_colorize_diff_line_no_color():
         assert result3 == "  unchanged line"
 
 
+# Test for colorize_unified_diff_line function
+@pytest.mark.unit
+def test_colorize_unified_diff_line():
+    """
+    Test the colorize_unified_diff_line function.
+    """
+
+    # Mock color support to be True for this test
+    with patch("clony.core.diff.COLOR_SUPPORT", True):
+        # Define test input
+        line1 = "+added line"
+        line2 = "-deleted line"
+        line3 = " unchanged line"  # Context line
+        line4 = "@@ -1,3 +1,3 @@"
+        line5 = "--- a/file1"
+        line6 = "+++ b/file2"
+        line7 = ""  # Empty line
+        line8 = "some other text"  # Other non-special line
+
+        # Colorize the lines
+        result1 = colorize_unified_diff_line(line1)
+        result2 = colorize_unified_diff_line(line2)
+        result3 = colorize_unified_diff_line(line3)
+        result4 = colorize_unified_diff_line(line4)
+        result5 = colorize_unified_diff_line(line5)
+        result6 = colorize_unified_diff_line(line6)
+        result7 = colorize_unified_diff_line(line7)
+        result8 = colorize_unified_diff_line(line8)
+
+        # Check that the output contains the expected content
+        assert "added line" in result1
+        assert f"{Fore.GREEN}" in result1
+        assert "deleted line" in result2
+        assert f"{Fore.RED}" in result2
+        assert "unchanged line" in result3
+        assert "@@ -1,3 +1,3 @@" in result4
+        assert f"{Fore.CYAN}" in result4
+
+        # File headers should be BLUE
+        assert "--- a/file1" in result5
+        assert f"{Fore.BLUE}" in result5
+
+        assert "+++ b/file2" in result6
+        assert f"{Fore.BLUE}" in result6
+
+        assert result7 == ""
+        assert result8 == "some other text"
+
+
+# Test for colorize_unified_diff_line function without color support
+@pytest.mark.unit
+def test_colorize_unified_diff_line_no_color():
+    """
+    Test the colorize_unified_diff_line function without color support.
+    """
+
+    # Mock the COLOR_SUPPORT variable to be False
+    with patch("clony.core.diff.COLOR_SUPPORT", False):
+        # Define test input
+        line1 = "+added line"
+        line2 = "-deleted line"
+        line3 = " unchanged line"
+        line4 = "@@ -1,3 +1,3 @@"
+        line5 = "--- a/file1"
+        line6 = "+++ b/file2"
+
+        # Colorize the lines
+        result1 = colorize_unified_diff_line(line1)
+        result2 = colorize_unified_diff_line(line2)
+        result3 = colorize_unified_diff_line(line3)
+        result4 = colorize_unified_diff_line(line4)
+        result5 = colorize_unified_diff_line(line5)
+        result6 = colorize_unified_diff_line(line6)
+
+        # Check that the output matches the expected format
+        assert result1 == "+added line"
+        assert result2 == "-deleted line"
+        assert result3 == " unchanged line"
+        assert result4 == "@@ -1,3 +1,3 @@"
+        assert result5 == "--- a/file1"
+        assert result6 == "+++ b/file2"
+
+
 # Test for colorama import error scenario
 @pytest.mark.unit
 def test_colorama_import_error():
@@ -353,9 +438,9 @@ def test_diff_blobs(temp_dir: pathlib.Path):
     diff = diff_blobs(temp_dir, blob1_hash, blob2_hash, algorithm="unified")
 
     # Check that the diff contains the expected headers and content
-    assert diff[0].startswith("---")
-    assert diff[1].startswith("+++")
-    assert "@@ " in diff[2]
+    assert "---" in diff[0]
+    assert "+++" in diff[1]
+    assert "@@" in diff[2]
     assert any("-line 2" in line for line in diff)
     assert any("+modified line" in line for line in diff)
 

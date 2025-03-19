@@ -12,20 +12,16 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 # Third-party imports
-try:  # pragma: no cover
-    import colorama
-    from colorama import Fore, Style
-
-    # Initialize colorama with appropriate settings for cross-platform support
-    colorama.init(strip=False, convert=True, autoreset=False)
-    COLOR_SUPPORT = True
-except ImportError:  # pragma: no cover
-    COLOR_SUPPORT = False
+from rich.console import Console
+from rich.table import Table
 
 # Local imports
 from clony.core.refs import get_head_commit
 from clony.internals.staging import find_git_repo_path
 from clony.utils.logger import logger
+
+# Initialize rich console for pretty output
+console = Console()
 
 
 # Function to read a Git object
@@ -204,16 +200,11 @@ def display_commit_logs(repo_path: Optional[Path] = None) -> None:
         repo_path (Optional[Path]): Path to the repository. If None, the current
             directory is used.
     """
-
     # If the repository path is not provided, find it
     if repo_path is None:
-        # Find the repository path
         repo_path = find_git_repo_path(Path.cwd())
-
-        # Check if the repository path is valid
         if not repo_path:
-            # Log an error and return
-            logger.error("Not a git repository. Run 'clony init' to create one.")
+            logger.error("Not a git repository")
             return
 
     # Get the commit history
@@ -221,18 +212,23 @@ def display_commit_logs(repo_path: Optional[Path] = None) -> None:
 
     # Check if there are any commits
     if not commit_history:
-        logger.info("No commits found.")
+        logger.info("No commits found")
         return
 
-    # Display each commit
+    # Create a table for displaying commit information
+    table = Table(title="Commit History")
+    table.add_column("Commit Hash", style="cyan")
+    table.add_column("Author", style="green")
+    table.add_column("Date", style="yellow")
+    table.add_column("Message", style="white")
+
+    # Add each commit to the table
     for commit in commit_history:
         # Extract the author information
         author_info = commit.get("author", "")
         author_name = (
             author_info.split("<")[0].strip() if "<" in author_info else author_info
         )
-
-        # Extract email from author info
         email = ""
         if "<" in author_info:
             email = author_info.split("<")[1].split(">")[0]
@@ -240,14 +236,13 @@ def display_commit_logs(repo_path: Optional[Path] = None) -> None:
         # Format the timestamp
         formatted_date = format_timestamp(author_info)
 
-        # Print the commit information with the hash in yellow
-        if COLOR_SUPPORT:
-            print(f"{Fore.YELLOW}commit {commit['hash']}{Style.RESET_ALL}")
-        else:
-            print(f"commit {commit['hash']}")
+        # Add the commit information to the table
+        table.add_row(
+            commit["hash"],
+            f"{author_name} <{email}>" if email else author_name,
+            formatted_date,
+            commit["message"],
+        )
 
-        print(f"Author: {author_name} <{email}>")
-        print(f"Date:   {formatted_date}")
-        print()
-        print(f"    {commit['message']}")
-        print()
+    # Display the table
+    console.print(table)

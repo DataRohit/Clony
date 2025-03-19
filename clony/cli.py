@@ -18,11 +18,12 @@ from rich.text import Text
 
 # Local imports
 from clony import __version__
-from clony.core.diff import print_diff
+from clony.core.diff import print_diff, read_git_object
+from clony.core.objects import parse_tree_object
 from clony.core.repository import Repository
 from clony.internals.commit import make_commit
-from clony.internals.log import display_commit_logs
-from clony.internals.reset import reset_head
+from clony.internals.log import display_commit_logs, parse_commit_object
+from clony.internals.reset import reset_head, validate_commit_reference
 from clony.internals.staging import stage_file
 from clony.internals.status import get_status
 from clony.utils.logger import logger
@@ -216,10 +217,8 @@ def main():
         # Run the CLI
         cli()
     except Exception as e:
-        # Print the error
-        console.print(f"[bold red]Error:[/bold red] {str(e)}")
-
-        # Exit the program
+        # Log the error and exit
+        logger.error(f"Error: {str(e)}")
         sys.exit(1)
 
 
@@ -239,7 +238,8 @@ def init(path: str, force: bool):
     """Initialize a new Git repository in the specified directory.
 
     Creates a Git repository in the specified directory. If no directory is
-    provided, initializes in the current directory."""
+    provided, initializes in the current directory.
+    """
 
     # Convert the path to an absolute path
     repo_path = pathlib.Path(path).resolve()
@@ -268,16 +268,24 @@ def stage(path: str):
     This command prepares a file to be included in the next commit by
     creating a blob object from the file content and updating the index.
 
+    The staging results are displayed in a formatted table showing the file path,
+    status (STAGED or UNCHANGED), and a short hash of the content.
+
     The file path is required, while the file must exist before proceeding.
     """
+    try:
+        # Check if file exists before proceeding
+        if not pathlib.Path(path).exists():
+            # Log the error and exit
+            logger.error(f"File not found: '{path}'")
+            sys.exit(1)
 
-    # Check if file exists before proceeding
-    if not pathlib.Path(path).exists():
-        logger.error(f"File not found: '{path}'")
-        return
-
-    # Stage the file using the staging module
-    stage_file(path)
+        # Stage the file using the staging module
+        stage_file(path)
+    except Exception as e:
+        # Log the error and exit
+        logger.error(f"Error staging file: {str(e)}")
+        sys.exit(1)
 
 
 # Commit command to create a new commit with staged changes
@@ -296,14 +304,19 @@ def commit(message: str, author_name: str, author_email: str):
     and will default to "Clony User" and "user@example.com" if not provided.
     """
 
-    # Set default author name and email if not provided
-    if not author_name:
-        author_name = "Clony User"
-    if not author_email:
-        author_email = "user@example.com"
+    try:
+        # Set default author name and email if not provided
+        if not author_name:
+            author_name = "Clony User"
+        if not author_email:
+            author_email = "user@example.com"
 
-    # Create the commit using the commit module
-    make_commit(message, author_name, author_email)
+        # Create the commit using the commit module
+        make_commit(message, author_name, author_email)
+    except Exception as e:
+        # Log the error and exit
+        logger.error(f"Error creating commit: {str(e)}")
+        sys.exit(1)
 
 
 # Status command to show the working tree status
@@ -312,23 +325,29 @@ def commit(message: str, author_name: str, author_email: str):
 def status(path: str):
     """Show the working tree status.
 
-    This command displays the state of the working directory and the staging area.
-    It shows which changes have been staged, which haven't, and which files aren't
-    being tracked by Git.
+    This command displays the state of the working directory and the staging area
+    in a formatted tabular output. It shows which changes have been staged,
+    which haven't, and which files aren't being tracked by Git.
+
+    The status is displayed in separate tables for staged changes, unstaged changes,
+    and untracked files, with color-coded statuses for better readability.
     """
 
     try:
         # Get the status of the repository
-        _, formatted_status = get_status(path)
+        status_dict, _ = get_status(path)
 
-        # Display the status with styling
-        print("\nOn branch main\n")
-        print(formatted_status)
+        # Display the branch information
+        logger.info("On branch main")
+
+        # Display the status information in tabular format
+        from clony.internals.status import display_status_info
+
+        display_status_info(status_dict)
 
     except Exception as e:
-        # Log the error and display an error message
+        # Log the error and exit
         logger.error(f"Error showing status: {str(e)}")
-        console.print(f"[bold red]Error:[/bold red] {str(e)}")
         sys.exit(1)
 
 
@@ -360,20 +379,23 @@ def reset(commit: str, soft: bool, mixed: bool, hard: bool):
     updates the index and working directory to match.
     """
 
-    # Determine the reset mode
-    if soft:
-        mode = "soft"
-    elif hard:
-        mode = "hard"
-    else:
-        # Default to mixed mode
-        mode = "mixed"
+    try:
+        # Determine the reset mode
+        if soft:
+            mode = "soft"
+        elif hard:
+            mode = "hard"
+        else:
+            # Default to mixed mode
+            mode = "mixed"
 
-    # Perform the reset
-    success = reset_head(commit, mode)
-
-    # Handle failure
-    if not success:
+        # Perform the reset
+        if not reset_head(commit, mode):
+            # If reset_head returns False, it will have already logged the error
+            sys.exit(1)
+    except Exception as e:
+        # Log the error and exit
+        logger.error(f"Error performing reset: {str(e)}")
         sys.exit(1)
 
 
@@ -414,10 +436,90 @@ def diff(
     """Display the differences between two blob objects.
 
     Compare the contents of two blob objects and show the differences
-    between them on a line-by-line basis."""
+    between them on a line-by-line basis.
+    """
 
     # Get the repository path
     repo_path = pathlib.Path.cwd()
 
     # Print the diff
     print_diff(repo_path, blob1, blob2, path1, path2, algorithm, context_lines)
+
+
+# Command to get all blob hashes from a commit
+@cli.command()
+@click.argument("commit", required=True)
+def blobs(commit: str):
+    """Display all blob hashes from a specified commit.
+
+    This command retrieves and displays all blob hashes associated with files
+    in the specified commit's tree. The commit can be specified using its hash,
+    a branch name, or a tag.
+
+    The output includes the blob hash and the associated file path for each blob
+    in the commit's tree structure.
+    """
+
+    # Get the repository path
+    repo_path = pathlib.Path.cwd()
+
+    try:
+        # Validate the commit reference
+        commit_hash = validate_commit_reference(repo_path, commit)
+        if not commit_hash:
+            # Log the error and exit
+            logger.error(f"Invalid commit reference: {commit}")
+            sys.exit(1)
+
+        # Read the commit object
+        object_type, content = read_git_object(repo_path, commit_hash)
+        if object_type != "commit":
+            # Log the error and exit
+            logger.error(f"Object {commit_hash} is not a commit")
+            sys.exit(1)
+
+        # Parse the commit to get the tree hash
+        commit_info = parse_commit_object(content)
+        tree_hash = commit_info.get("tree")
+        if not tree_hash:
+            # Log the error and exit
+            logger.error("No tree found in commit")
+            sys.exit(1)
+
+        # Create a table for displaying blob information
+        table = Table(
+            title=f"[bold blue]Blob Hashes in Commit {commit_hash[:8]}[/bold blue]",
+            border_style="blue",
+        )
+        table.add_column("Blob Hash", style="cyan")
+        table.add_column("File Path", style="green")
+
+        # Function to recursively process tree objects
+        def process_tree(tree_hash: str, prefix: str = ""):
+            # Read the tree object
+            object_type, content = read_git_object(repo_path, tree_hash)
+            if object_type != "tree":
+                return
+
+            # Parse the tree entries
+            entries = parse_tree_object(content)
+            for entry in entries:
+                mode, obj_type, obj_hash, name = entry
+
+                # If it's a blob, add it to the table
+                if obj_type == "blob":
+                    table.add_row(obj_hash, f"{prefix}{name}")
+                # If it's a tree, process it recursively
+                elif obj_type == "tree":
+                    process_tree(obj_hash, f"{prefix}{name}/")
+
+        # Process the root tree
+        process_tree(tree_hash)
+
+        # Display the table
+        console.print(table)
+
+    except Exception as e:
+        # Log the error and exit
+        logger.error(f"Error retrieving blob hashes: {str(e)}")
+        sys.exit(1)

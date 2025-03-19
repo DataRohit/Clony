@@ -21,12 +21,19 @@ try:  # pragma: no cover
 except ImportError:  # pragma: no cover
     COLOR_SUPPORT = False
 
+# Rich imports for tabular display
+from rich.console import Console
+from rich.table import Table
+
 # Local imports
 from clony.core.objects import calculate_sha1_hash
 from clony.core.refs import get_head_commit
 from clony.internals.commit import read_index_file
 from clony.internals.staging import find_git_repo_path
 from clony.utils.logger import logger
+
+# Initialize console for Rich
+console = Console()
 
 
 # File status enum
@@ -471,3 +478,133 @@ def get_status(path: str = ".") -> Tuple[Dict[FileStatus, List[str]], str]:
 
     # Return the status dictionary and formatted output
     return status_dict, formatted_output
+
+
+# Function to display repository status in tabular format
+def display_status_info(status_dict: Dict[FileStatus, List[str]]) -> None:
+    """
+    Display repository status information in a formatted table.
+
+    This function creates and displays formatted tables showing the status
+    of files in the repository, including files staged for commit, files
+    with changes not staged for commit, and untracked files.
+
+    Args:
+        status_dict (Dict[FileStatus, List[str]]): Dictionary mapping file statuses to
+            lists of file paths.
+    """
+
+    try:
+        # Check if there's anything to display
+        if not any(status_dict.values()):
+            # Create a table for empty status
+            table = Table(title="Repository Status")
+
+            # Add a column to the table
+            table.add_column("Status", style="green")
+
+            # Add a row indicating clean working tree
+            table.add_row("Nothing to commit, working tree clean")
+
+            # Display the table
+            console.print(table)
+            return
+
+        # Create a table for staged files
+        staged_files = (
+            status_dict[FileStatus.STAGED_NEW]
+            + status_dict[FileStatus.STAGED_MODIFIED]
+            + status_dict[FileStatus.STAGED_DELETED]
+        )
+
+        if staged_files:
+            # Create a table for changes to be committed
+            staged_table = Table(title="Changes to be committed")
+
+            # Add columns to the table
+            staged_table.add_column("File", style="cyan")
+            staged_table.add_column("Status", style="green")
+
+            # Add information about how to unstage files
+            logger.info("Use 'clony reset HEAD <file>...' to unstage")
+
+            # Add rows for each staged file
+            for file_path in status_dict[FileStatus.STAGED_NEW]:
+                # Add row for new files
+                staged_table.add_row(file_path, "New file")
+
+            for file_path in status_dict[FileStatus.STAGED_MODIFIED]:
+                # Add row for modified files
+                staged_table.add_row(file_path, "Modified")
+
+            for file_path in status_dict[FileStatus.STAGED_DELETED]:
+                # Add row for deleted files
+                staged_table.add_row(file_path, "Deleted")
+
+            # Display the staged files table
+            console.print(staged_table)
+
+        # Create a table for unstaged changes
+        unstaged_files = (
+            status_dict[FileStatus.MODIFIED]
+            + status_dict[FileStatus.DELETED]
+            + status_dict[FileStatus.BOTH_MODIFIED]
+            + status_dict[FileStatus.BOTH_DELETED]
+        )
+
+        if unstaged_files:
+            # Create a table for changes not staged for commit
+            unstaged_table = Table(title="Changes not staged for commit")
+
+            # Add columns to the table
+            unstaged_table.add_column("File", style="cyan")
+            unstaged_table.add_column("Status", style="yellow")
+
+            # Add information about how to stage changes
+            logger.info("Use 'clony stage <file>...' to stage changes")
+
+            # Add rows for each unstaged file
+            for file_path in status_dict[FileStatus.MODIFIED]:
+                # Add row for modified files
+                unstaged_table.add_row(file_path, "Modified")
+
+            for file_path in status_dict[FileStatus.DELETED]:
+                # Add row for deleted files
+                unstaged_table.add_row(file_path, "Deleted")
+
+            for file_path in status_dict[FileStatus.BOTH_MODIFIED]:
+                # Add row for files both staged and then modified again
+                unstaged_table.add_row(file_path, "Modified")
+
+            for file_path in status_dict[FileStatus.BOTH_DELETED]:
+                # Add row for files both staged and then deleted
+                unstaged_table.add_row(file_path, "Deleted")
+
+            # Display the unstaged files table
+            console.print(unstaged_table)
+
+        # Create a table for untracked files
+        untracked_files = status_dict[FileStatus.UNTRACKED]
+
+        if untracked_files:
+            # Create a table for untracked files
+            untracked_table = Table(title="Untracked files")
+
+            # Add a column to the table
+            untracked_table.add_column("File", style="red")
+
+            # Add information about how to track files
+            logger.info(
+                "Use 'clony stage <file>...' to include in what will be committed"
+            )
+
+            # Add rows for each untracked file
+            for file_path in untracked_files:
+                # Add row for untracked files
+                untracked_table.add_row(file_path)
+
+            # Display the untracked files table
+            console.print(untracked_table)
+    except Exception as e:
+        # Log the error
+        logger.error(f"Error displaying status: {str(e)}")

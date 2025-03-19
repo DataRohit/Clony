@@ -261,3 +261,60 @@ def create_commit_object(
 
     # Write the commit object
     return write_object_file(repo_path, commit_content.encode(), "commit")
+
+
+# Function to parse a tree object
+def parse_tree_object(content: bytes) -> List[Tuple[str, str, str, str]]:
+    """
+    Parse a Git tree object content.
+
+    Args:
+        content (bytes): The content of the tree object.
+
+    Returns:
+        List[Tuple[str, str, str, str]]: A list of tuples containing:
+            - mode (str): The file mode (e.g., "100644" for regular file)
+            - type (str): The object type ("blob" or "tree")
+            - hash (str): The SHA-1 hash of the object
+            - name (str): The name of the file or directory
+    """
+
+    # Initialize the entries list
+    entries = []
+
+    # Process the content
+    i = 0
+    while i < len(content):
+        # Find the space after the mode
+        space_index = content.find(b" ", i)
+        if space_index == -1:
+            break
+
+        # Extract the mode
+        mode = content[i:space_index].decode()
+
+        # Find the null byte after the name
+        null_index = content.find(b"\0", space_index + 1)
+        if null_index == -1:
+            break
+
+        # Extract the name
+        name = content[space_index + 1 : null_index].decode()
+
+        # Extract the SHA-1 hash (20 bytes)
+        hash_start = null_index + 1
+        if hash_start + 20 > len(content):
+            break
+        sha1_hash = "".join(f"{b:02x}" for b in content[hash_start : hash_start + 20])
+
+        # Determine the object type based on the mode
+        obj_type = "tree" if mode.startswith("40") else "blob"
+
+        # Add the entry to the list
+        entries.append((mode, obj_type, sha1_hash, name))
+
+        # Move to the next entry
+        i = hash_start + 20
+
+    # Return the entries
+    return entries

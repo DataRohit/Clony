@@ -117,10 +117,10 @@ Initialize a new Git repository in the specified directory.
 
 ```bash
 # Basic Usage
-clony init [path]  # Create a new Git repository
+clony init [path]  # Create a new Git repository in the specified path (default: current directory)
 
 # Options
---force, -f       # Force reinitialization if repository exists
+--force, -f       # Force reinitialization if repository already exists
 --help, -h        # Show help for init command
 ```
 
@@ -129,28 +129,50 @@ clony init [path]  # Create a new Git repository
 ```bash
 # Initialize in current directory
 $ clony init
-INFO     Git repository initialized successfully
-INFO     Initialized empty Git repository in /current/path
+[03/19/25 22:42:21] INFO     Git repository initialized successfully
+                    INFO     Initialized empty Git repository in D:\Projects\test_repo
 
-# Initialize in a new directory
+# Initialize in a specific directory that already exists
 $ clony init my-project
-INFO     Git repository initialized successfully
-INFO     Initialized empty Git repository in /path/to/my-project
+[03/19/25 22:32:15] INFO     Git repository initialized successfully
+                    INFO     Initialized empty Git repository in /path/to/my-project
+
+# Initialize in a new directory (creates the directory automatically)
+$ clony init new-project
+[03/19/25 22:32:24] INFO     Git repository initialized successfully
+                    INFO     Initialized empty Git repository in /path/to/new-project
 
 # Try to initialize in existing repository
 $ clony init existing-repo
-WARNING  Git repository already exists
-INFO     Use --force to reinitialize
+[03/19/25 22:32:33] WARNING  Git repository already exists
+                    INFO     Use --force to reinitialize
 
-# Force reinitialization
+# Force reinitialization of an existing repository
 $ clony init existing-repo --force
-INFO     Git repository initialized successfully
-INFO     Initialized empty Git repository in /path/to/existing-repo
+[03/19/25 22:32:42] INFO     Git repository initialized successfully
+                    INFO     Initialized empty Git repository in /path/to/existing-repo
 
-# Initialize with invalid path
+# Initialize with invalid path (non-existent parent directory)
 $ clony init /invalid/path
-ERROR    Parent directory does not exist: /invalid/path
+[03/19/25 22:32:51] ERROR    Parent directory does not exist: /invalid/path
+
+# Initialize with relative path
+$ clony init ../sibling-project
+[03/19/25 22:33:00] INFO     Git repository initialized successfully
+                    INFO     Initialized empty Git repository in /path/to/sibling-project
 ```
+
+The `init` command creates the standard Git directory structure including:
+- `.git` directory with all required subdirectories
+- `objects` directory for Git object storage
+- `refs` directory with `heads` and `tags` subdirectories
+- Default `HEAD` file pointing to the `main` branch
+- Basic Git configuration file
+
+When initializing a repository, Clony performs several checks to ensure the operation will succeed:
+1. Verifies the parent directory exists
+2. Checks if a Git repository already exists at the location
+3. Creates all required directories and files with proper permissions
 
 #### `stage`
 
@@ -170,46 +192,81 @@ clony stage <file_path>  # Stage a file for the next commit
 
 ```bash
 # Stage a file
-$ clony stage myfile.txt
-INFO     File staged: 'myfile.txt'
+$ clony stage test1.txt
+[03/19/25 22:42:43] INFO     File staged: 'test1.txt'
+
+           Staging Results           
+┏━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━┓
+┃ File Path ┃ Status ┃ Content Hash ┃
+┡━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━┩
+│ test1.txt │ STAGED │ bb52363e     │
+└───────────┴────────┴──────────────┘
 
 # Try to stage a non-existent file
 $ clony stage non_existent_file.txt
-ERROR    File not found: 'non_existent_file.txt'
+[03/19/25 22:35:20] ERROR    File not found: 'non_existent_file.txt'
 
 # Stage a file in a non-git repository
 $ clony stage file_outside_repo.txt
-ERROR    Not a git repository. Run 'clony init' to create one.
+[03/19/25 22:35:35] ERROR    Not a git repository. Run 'clony init' to create one.
 
-# Try to stage a file that's already staged
+# Try to stage a file that's already staged with no changes
 $ clony stage already_staged.txt
-WARNING  File already staged: 'already_staged.txt'
+[03/19/25 22:35:45] WARNING  File already staged: 'already_staged.txt'
+
+           Staging Results           
+┏━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━━━━┓
+┃ File Path       ┃ Status    ┃ Content Hash ┃
+┡━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━━━━┩
+│ already_staged.txt│ UNCHANGED │ e5f6g7h8    │
+└──────────────────┴───────────┴──────────────┘
 
 # Stage a file after changing its content
 $ echo "Changed content" > myfile.txt
 $ clony stage myfile.txt
-INFO     File staged: 'myfile.txt'
+[03/19/25 22:36:05] INFO     File staged: 'myfile.txt'
+
+           Staging Results           
+┏━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━┓
+┃ File Path ┃ Status ┃ Content Hash ┃
+┡━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━┩
+│ myfile.txt│ STAGED │ b2c3d4e5     │
+└───────────┴────────┴──────────────┘
 
 # Try to stage a file with invalid path
 $ clony stage /invalid/path/file.txt
-ERROR    File not found: '/invalid/path/file.txt'
+[03/19/25 22:36:15] ERROR    File not found: '/invalid/path/file.txt'
 
-# Try to stage an unchanged file
-$ clony stage unchanged_file.txt
-WARNING  File unchanged since last commit: 'unchanged_file.txt'
+# Stage multiple files sequentially
+$ clony stage file1.txt
+[03/19/25 22:37:25] INFO     File staged: 'file1.txt'
 
-# Try to stage an unchanged file after a commit (this will still fail)
-$ clony commit --message "Initial commit"
-INFO     Created commit a1b2c3d with message: Initial commit
-INFO     Staging area cleared
-$ clony stage unchanged_file.txt
-WARNING  File unchanged since last commit: 'unchanged_file.txt'
+           Staging Results           
+┏━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━┓
+┃ File Path ┃ Status ┃ Content Hash ┃
+┡━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━┩
+│ file1.txt │ STAGED │ h8i9j0k1     │
+└───────────┴────────┴──────────────┘
 
-# Stage a file after modifying it
-$ echo "New content" > unchanged_file.txt
-$ clony stage unchanged_file.txt
-INFO     File staged: 'unchanged_file.txt'
+$ clony stage file2.txt
+[03/19/25 22:42:54] INFO     File staged: 'file2.txt'
+
+           Staging Results           
+┏━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━┓
+┃ File Path ┃ Status ┃ Content Hash ┃
+┡━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━┩
+│ file2.txt │ STAGED │ ac43975e     │
+└───────────┴────────┴──────────────┘
 ```
+
+The staging process performs several key operations:
+1. Calculates a SHA-1 hash of the file content
+2. Compresses the content using zlib
+3. Stores the compressed content in the Git object database
+4. Updates the index file with the file path and hash
+5. Prevents staging unchanged files to avoid empty commits
+
+After staging, you can use the `status` command to see all staged files, and then create a commit with the `commit` command.
 
 #### `commit`
 
@@ -234,25 +291,274 @@ clony commit --message "Your commit message"  # Create a commit with staged chan
 
 ```bash
 # Create a basic commit
-$ clony commit --message "Initial commit"
-INFO     Created commit a1b2c3d with message: Initial commit
+$ clony commit --message "Initial commit with test files"
+                               Commit Information                               
+┏━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Commit Hash ┃ Author                        ┃ Message                        ┃
+┡━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ b68a0ef     │ Clony User                    │ Initial commit with test files │
+└─────────────┴───────────────────━━━─────────┴────────────────────────────────┘
 
 # Create a commit with author information
 $ clony commit --message "Add feature" --author-name "John Doe" --author-email "john@example.com"
-INFO     Created commit e4f5g6h with message: Add feature
+                        Commit Information                      
+┏━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┓
+┃ Commit Hash ┃ Author                     ┃ Message     ┃
+┡━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━┩
+│ e4f5g6h     │ John Doe <john@example.com>│ Add feature │
+└─────────────┴────────────────────────────┴─────────────┘
+
+# Commit with a longer descriptive message
+$ clony commit --message "Update test1.txt"
+                        Commit Information                        
+┏━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┓
+┃ Commit Hash ┃ Author                        ┃ Message          ┃
+┡━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━┩
+│ b6a6cba     │ Clony User                    │ Update test1.txt │
+└─────────────┴───────────────────━━━─────────┴──────────────────┘
 
 # Try to commit without a message
 $ clony commit
-ERROR    Missing option '--message' / '-m'.
+[03/19/25 22:38:35] ERROR    Missing option '--message' / '-m'.
 
 # Try to commit with no staged changes
 $ clony commit --message "Empty commit"
-ERROR    Nothing to commit. Run 'clony stage <file>' to stage changes.
+[03/19/25 22:38:45] ERROR    Nothing to commit. Run 'clony stage <file>' to stage changes.
 
 # Try to commit outside a git repository
 $ clony commit --message "Outside repo"
-ERROR    Not a git repository. Run 'clony init' to create one.
+[03/19/25 22:38:55] ERROR    Not a git repository. Run 'clony init' to create one.
 ```
+
+The commit process performs several key operations:
+1. Creates a tree object representing the directory structure
+2. Gets the current HEAD commit as the parent
+3. Creates a commit object with the tree, parent, author info, and message
+4. Updates the branch reference to point to the new commit
+5. Updates the HEAD_TREE file to track all committed files 
+6. Clears the staging area for the next set of changes
+
+After creating a commit, you can use the `log` command to view the commit history, and `status` to confirm the staging area is cleared.
+
+#### `status`
+
+Show the working tree status. This command displays the state of the working directory and the staging area, showing which changes have been staged, which haven't, and which files aren't being tracked by Git.
+
+The status command categorizes files into three main sections:
+1. **Changes to be committed**: Files that have been staged and are ready for the next commit
+2. **Changes not staged for commit**: Files that have been modified but not yet staged
+3. **Untracked files**: Files that are not tracked by Git
+
+```bash
+# Basic Usage
+clony status [path]  # Show the status of the working tree
+
+# Options
+--help, -h          # Show help for status command
+```
+
+**Examples:**
+
+```bash
+# Show status with staged files
+$ clony status
+[03/19/25 22:42:49] INFO     On branch main
+                    INFO     Use 'clony reset HEAD <file>...' to unstage
+Changes to be committed 
+┏━━━━━━━━━━━┳━━━━━━━━━━┓
+┃ File      ┃ Status   ┃
+┡━━━━━━━━━━━╇━━━━━━━━━━┩
+│ test1.txt │ New file │
+└───────────┴──────────┘
+                    INFO     Use 'clony stage <file>...' to include in what will be committed
+  Untracked  
+    files    
+┏━━━━━━━━━━━┓
+┃ File      ┃
+┡━━━━━━━━━━━┩
+│ test2.txt │
+└───────────┘
+
+# Show status after committing all files (clean working tree)
+$ clony status
+[03/19/25 22:43:15] INFO     On branch main
+                    INFO     Nothing to commit, working tree clean
+
+# Show status after modifying a committed file
+$ echo "Modified content" > test1.txt
+$ clony status
+[03/19/25 22:43:30] INFO     On branch main
+                    INFO     Use 'clony stage <file>...' to update what will be committed
+  Changes not   
+staged for commit
+┏━━━━━━━━━━━┳━━━━━━━━━━┓
+┃ File      ┃ Status   ┃
+┡━━━━━━━━━━━╇━━━━━━━━━━┩
+│ test1.txt │ Modified │
+└───────────┴──────────┘
+
+# Show status in a non-git repository
+$ clony status /not/a/repo
+[03/19/25 22:43:45] ERROR    Not a git repository. Run 'clony init' to create one.
+```
+
+The status command performs several operations:
+1. Checks if you're in a Git repository
+2. Determines the current branch
+3. Reads the index file to find staged changes
+4. Compares working directory files with the HEAD commit to find unstaged changes
+5. Identifies untracked files in the working directory
+6. Displays all findings in a clear, organized tabular format
+
+#### `log`
+
+Display the commit history. This command traverses the commit graph starting from HEAD and displays the commit history in reverse chronological order (most recent first).
+
+For each commit, the following information is displayed:
+1. **Commit Hash**: The unique SHA-1 identifier of the commit
+2. **Author**: The name and email of the individual who made the commit
+3. **Date**: The exact date and time when the commit was made
+4. **Commit Message**: The message describing the changes introduced in the commit
+
+```bash
+# Basic Usage
+clony log  # Display the commit history
+
+# Options
+--help, -h  # Show help for log command
+```
+
+**Examples:**
+
+```bash
+# Show commit history
+$ clony log
+                                             Commit History
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Commit Hash             ┃ Author                  ┃ Date                    ┃ Message                 ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ b6a6cbaf9e123456789abc… │ Clony User              │ Wed Mar 19 22:45:00     │ Update test1.txt        │
+│                         │ <user@example.com>      │ 2025 +0530              │                         │
+└─────────────────────────┴─────────────────────────┴─────────────────────────┴─────────────────────────┘
+│ b68a0efae1cd79937eb746… │ Clony User              │ Wed Mar 19 22:43:00     │ Initial commit with     │
+│                         │ <user@example.com>      │ 2025 +0530              │ test files              │
+└─────────────────────────┴─────────────────────────┴─────────────────────────┴─────────────────────────┘
+
+# Show commit history in a repository with no commits
+$ clony log
+[03/19/25 22:45:30] INFO     No commits found.
+
+# Show commit history outside a git repository
+$ clony log
+[03/19/25 22:45:45] ERROR    Not a git repository. Run 'clony init' to create one.
+```
+
+The log command performs several operations:
+1. Reads the HEAD reference to find the current branch
+2. Traverses the commit graph from the most recent commit
+3. Parses each commit object to extract metadata (author, date, message)
+4. Formats the commit history in a clean tabular display
+5. Handles edge cases like empty repositories or detached HEAD states
+
+#### `blobs`
+
+Display all blob hashes from a specified commit. This command retrieves and displays all blob hashes associated with files in the specified commit's tree.
+
+```bash
+# Basic Usage
+clony blobs <commit>  # Display all blob hashes from the specified commit
+
+# Options
+--help, -h          # Show help for blobs command
+```
+
+**Examples:**
+
+```bash
+# Show blobs from the main branch
+$ clony blobs main
+             Blob Hashes in Commit b68a0efa             
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Blob Hash                                ┃ File Path ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ 9f4b6d8bfeaf44aaa69872286163784706d1b053 │ test1.txt │
+│ ac439756c6fb3ee361bd0126ad6cdf9ffde9ec2c │ test2.txt │
+└──────────────────────────────────────────┴───────────┘
+
+# Show blobs from a specific commit hash
+$ clony blobs b6a6cbaf
+             Blob Hashes in Commit b6a6cbaf             
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Blob Hash                                ┃ File Path ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ f776a8f3bf069022eedc67803f8d40043fa56324 │ test1.txt │
+│ ac439756c6fb3ee361bd0126ad6cdf9ffde9ec2c │ test2.txt │
+└──────────────────────────────────────────┴───────────┘
+
+# Try to get blobs from an invalid commit reference
+$ clony blobs HEAD
+[03/19/25 22:45:21] ERROR    Invalid commit reference: HEAD
+
+# Try to get blobs outside a git repository
+$ clony blobs main
+[03/19/25 22:46:15] ERROR    Not a git repository. Run 'clony init' to create one.
+```
+
+The blobs command performs several operations:
+1. Resolves the commit reference (branch, tag, or commit hash)
+2. Reads the commit object to find the root tree
+3. Traverses the tree recursively to find all blob objects
+4. Displays the blob hashes and their associated file paths in a table
+5. Handles errors such as invalid commit references
+
+#### `diff`
+
+Display the differences between two blob objects. This command compares the contents of two blob objects and shows the differences between them line by line.
+
+```bash
+# Basic Usage
+clony diff <blob1> <blob2>  # Compare two blob objects
+
+# Options
+--path1 TEXT             # The path of the first file
+--path2 TEXT             # The path of the second file
+--algorithm TEXT         # The diff algorithm to use (myers or unified)
+--context-lines INTEGER  # The number of context lines to show in the unified diff
+--help, -h               # Show help for diff command
+```
+
+**Examples:**
+
+```bash
+# Compare two blob objects using their hashes
+$ clony diff 9f4b6d8bfeaf44aaa69872286163784706d1b053 f776a8f3bf069022eedc67803f8d40043fa56324
+- This is a test file
++ This is an updated test file
+
+# Compare with paths and algorithm specified
+$ clony diff 9f4b6d8bfeaf44aaa69872286163784706d1b053 f776a8f3bf069022eedc67803f8d40043fa56324 --path1 test1.txt --path2 test1.txt --algorithm unified
+--- test1.txt
++++ test1.txt
+@@ -1 +1 @@
+-This is a test file
++This is an updated test file
+
+# Try to use the diff command with only one blob hash
+$ clony diff 9f4b6d8bfeaf44aaa69872286163784706d1b053
+[03/19/25 22:47:15] ERROR    Missing argument 'BLOB2'.
+
+# Try to use diff outside a git repository
+$ clony diff blob1 blob2
+[03/19/25 22:47:30] ERROR    Not a git repository. Run 'clony init' to create one.
+```
+
+The diff command performs several operations:
+1. Reads the content of both blob objects from the Git object database
+2. Parses the content of each blob
+3. Compares the content line by line using the specified algorithm
+4. Displays the differences in a clear, standardized format
+5. Handles various output formats based on the selected options
 
 #### `reset`
 
@@ -278,161 +584,102 @@ clony reset <commit>  # Reset HEAD to the specified commit
 
 ```bash
 # Perform a mixed reset (default)
-$ clony reset abc123
-INFO     Reset HEAD to abc123 (mixed mode)
+$ clony reset b68a0efae1cd79937eb7466065db7fbd5dc4969a
+                      Reset Results
+┏━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Commit Hash ┃ Reset Mode ┃ Actions Taken              ┃
+┡━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ b68a0efa    │ MIXED      │ • HEAD pointer updated     │
+│             │            │ • Index/staging area reset │
+└─────────────┴────────────┴────────────────────────────┘
+                        Commit Details
+┏━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Property  ┃ Value                                          ┃
+┡━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ Tree      │ 99f1d991447efa7c2455a7df54845d2b4b53e6dc       │
+│ Parent    │                                                │
+│ Author    │ Clony User <user@example.com> 1742404380 +0530 │
+│ Committer │ Clony User <user@example.com> 1742404380 +0530 │
+│ Message   │ Initial commit with test files                 │
+└───────────┴────────────────────────────────────────────────┘
 
 # Perform a soft reset
-$ clony reset --soft abc123
-INFO     Reset HEAD to abc123 (soft mode)
+$ clony reset --soft b68a0efa
+                      Reset Results
+┏━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Commit Hash ┃ Reset Mode ┃ Actions Taken          ┃
+┡━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ b68a0efa    │ SOFT       │ • HEAD pointer updated │
+└─────────────┴────────────┴─────────────━━━────────┘
+                        Commit Details
+┏━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Property  ┃ Value                                          ┃
+┡━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ Tree      │ 99f1d991447efa7c2455a7df54845d2b4b53e6dc       │
+│ Parent    │                                                │
+│ Author    │ Clony User <user@example.com> 1742404380 +0530 │
+│ Committer │ Clony User <user@example.com> 1742404380 +0530 │
+│ Message   │ Initial commit with test files                 │
+└───────────┴────────────────────────────────────────────────┘
 
 # Perform a hard reset
-$ clony reset --hard abc123
-INFO     Reset HEAD to abc123 (hard mode)
+$ clony reset --hard b68a0efa
+                      Reset Results
+┏━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Commit Hash ┃ Reset Mode ┃ Actions Taken                  ┃
+┡━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ b68a0efa    │ HARD       │ • HEAD pointer updated         │
+│             │            │ • Index/staging area reset     │
+│             │            │ • Working directory updated    │
+└─────────────┴────────────┴────────────────────────────────┘
+                        Commit Details
+┏━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Property  ┃ Value                                          ┃
+┡━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ Tree      │ 99f1d991447efa7c2455a7df54845d2b4b53e6dc       │
+│ Parent    │                                                │
+│ Author    │ Clony User <user@example.com> 1742404380 +0530 │
+│ Committer │ Clony User <user@example.com> 1742404380 +0530 │
+│ Message   │ Initial commit with test files                 │
+└───────────┴────────────────────────────────────────────────┘
 
 # Reset to a branch name
 $ clony reset main
-INFO     Reset HEAD to def456 (mixed mode)
-
-# Reset to a tag
-$ clony reset v1.0
-INFO     Reset HEAD to ghi789 (mixed mode)
+                      Reset Results
+┏━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Commit Hash ┃ Reset Mode ┃ Actions Taken              ┃
+┡━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ b6a6cba     │ MIXED      │ • HEAD pointer updated     │
+│             │            │ • Index/staging area reset │
+└─────────────┴────────────┴────────────────────────────┘
+                        Commit Details
+┏━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Property  ┃ Value                                          ┃
+┡━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ Tree      │ 2a51f3ebb69151c2a11aad6709dc448ef9e8c66b       │
+│ Parent    │ b68a0efae1cd79937eb7466065db7fbd5dc4969a       │
+│ Author    │ Clony User <user@example.com> 1742404420 +0530 │
+│ Committer │ Clony User <user@example.com> 1742404420 +0530 │
+│ Message   │ Update test1.txt                               │
+└───────────┴────────────────────────────────────────────────┘
 
 # Try to reset with an invalid commit reference
 $ clony reset invalid-commit
-ERROR    Failed to reset HEAD to invalid-commit
+[03/19/25 22:49:15] ERROR    Failed to reset HEAD to invalid-commit: Not a valid commit reference
 
 # Try to reset outside a git repository
-$ clony reset abc123
-ERROR    Not in a Git repository
+$ clony reset b68a0efa
+[03/19/25 22:49:30] ERROR    Not in a Git repository
 ```
 
-#### `status`
-
-Show the working tree status. This command displays the state of the working directory and the staging area, showing which changes have been staged, which haven't, and which files aren't being tracked by Git.
-
-The status command categorizes files into three main sections:
-1. **Changes to be committed**: Files that have been staged and are ready for the next commit
-2. **Changes not staged for commit**: Files that have been modified but not yet staged
-3. **Untracked files**: Files that are not tracked by Git
-
-```bash
-# Basic Usage
-clony status [path]  # Show the status of the working tree
-
-# Options
---help, -h          # Show help for status command
-```
-
-**Examples:**
-
-```bash
-# Show status in current directory
-$ clony status
-On branch main
-
-Untracked files:
-  (use "clony stage <file>..." to include in what will be committed)
-
-        file1.txt
-        file2.txt
-
-# Show status after staging a file
-$ clony stage file1.txt
-INFO     File staged: 'file1.txt'
-$ clony status
-On branch main
-
-Changes to be committed:
-  (use "clony reset HEAD <file>..." to unstage)
-
-        new file:   file1.txt
-
-Untracked files:
-  (use "clony stage <file>..." to include in what will be committed)
-
-        file2.txt
-
-# Show status after committing
-$ clony commit --message "Add file1.txt"
-INFO     Created commit a1b2c3d with message: Add file1.txt
-INFO     Staging area cleared
-$ clony status
-On branch main
-
-Untracked files:
-  (use "clony stage <file>..." to include in what will be committed)
-
-        file2.txt
-
-# Show status after modifying a committed file
-$ echo "Modified content" > file1.txt
-$ clony status
-On branch main
-
-Changes not staged for commit:
-  (use "clony stage <file>..." to update what will be committed)
-
-        modified:   file1.txt
-
-Untracked files:
-  (use "clony stage <file>..." to include in what will be committed)
-
-        file2.txt
-
-# Show status in a specific directory
-$ clony status /path/to/repo
-On branch main
-
-nothing to commit, working tree clean
-
-# Show status in a non-git repository
-$ clony status /not/a/repo
-ERROR    Not a git repository. Run 'clony init' to create one.
-```
-
-#### `log`
-
-Display the commit history. This command traverses the commit graph starting from HEAD and displays the commit history in reverse chronological order (most recent first).
-
-For each commit, the following information is displayed:
-1. **Commit Hash**: The unique SHA-1 identifier of the commit
-2. **Author**: The name and email of the individual who made the commit
-3. **Date**: The exact date and time when the commit was made
-4. **Commit Message**: The message describing the changes introduced in the commit
-
-```bash
-# Basic Usage
-clony log  # Display the commit history
-
-# Options
---help, -h  # Show help for log command
-```
-
-**Examples:**
-
-```bash
-# Show commit history
-$ clony log
-commit a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0
-Author: John Doe <john@example.com>
-Date:   Wed Apr 5 12:00:00 2023 +0000
-
-    Add feature X
-
-commit b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1
-Author: Jane Smith <jane@example.com>
-Date:   Tue Apr 4 10:30:00 2023 +0000
-
-    Initial commit
-
-# Show commit history in a repository with no commits
-$ clony log
-INFO     No commits found.
-
-# Show commit history outside a git repository
-$ clony log
-ERROR    Not a git repository. Run 'clony init' to create one.
-```
+The reset command performs several operations depending on the mode:
+1. Resolves the commit reference to a specific commit hash
+2. Updates the HEAD reference to point to the new commit
+3. In mixed and hard modes, updates the index to match the commit's tree
+4. In hard mode, updates the working directory to match the commit's tree
+5. Provides detailed output about the actions taken during the reset
+6. Shows information about the commit you've reset to
+7. Handles errors such as invalid commit references or repository issues
 
 ## 💻 Development
 

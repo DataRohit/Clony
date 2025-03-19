@@ -667,3 +667,46 @@ def test_stage_file_unchanged_after_commit_with_modification(temp_dir: pathlib.P
     with open(index_file, "r") as f:
         content = f.read()
     assert content.strip() == ""
+
+
+# Test for display_staging_info function
+@pytest.mark.unit
+def test_display_staging_info():
+    """
+    Test the display_staging_info function.
+
+    This test verifies that the display_staging_info function correctly creates
+    and displays a table with staging information including file path, status,
+    and content hash.
+    """
+    # Define test parameters
+    file_path = "test_file.txt"
+    file_hash = "0123456789abcdef0123456789abcdef01234567"
+    status = "STAGED"
+
+    # Mock the console.print method
+    with patch("clony.internals.staging.console.print") as mock_console_print:
+        # Call the display_staging_info function
+        from clony.internals.staging import display_staging_info
+
+        display_staging_info(file_path, file_hash, status)
+
+        # Verify that console.print was called once
+        assert mock_console_print.call_count == 1
+
+        # Verify that the argument to console.print is a Table
+        from rich.table import Table
+
+        assert isinstance(mock_console_print.call_args[0][0], Table)
+
+        # Get the table that was passed to console.print
+        table = mock_console_print.call_args[0][0]
+
+        # Verify the table title
+        assert table.title == "Staging Results"
+
+        # Verify the table has the expected columns
+        column_names = [column.header for column in table.columns]
+        assert "File Path" in column_names
+        assert "Status" in column_names
+        assert "Content Hash" in column_names

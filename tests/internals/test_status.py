@@ -16,6 +16,7 @@ import pytest
 # Local imports
 from clony.internals.status import (
     FileStatus,
+    display_status_info,
     format_status_output,
     get_all_files,
     get_commit_tree,
@@ -784,3 +785,160 @@ def test_format_status_output_nothing_to_commit():
 
         # Check the output
         assert output == "GREENnothing to commit, working tree cleanRESET"
+
+
+# Test for the display_status_info function
+@pytest.mark.unit
+def test_display_status_info():
+    """
+    Test the display_status_info function.
+
+    This test verifies that the display_status_info function correctly creates
+    and displays tables for different types of file statuses.
+    """
+    # Create a mock status dictionary
+    status_dict = {status: [] for status in FileStatus}
+
+    # Add some test files to different statuses
+    status_dict[FileStatus.STAGED_NEW] = ["new_file.txt"]
+    status_dict[FileStatus.STAGED_MODIFIED] = ["modified_staged.txt"]
+    status_dict[FileStatus.MODIFIED] = ["modified_unstaged.txt"]
+    status_dict[FileStatus.UNTRACKED] = ["untracked.txt"]
+
+    # Mock the console.print method and logger.info method
+    with (
+        patch("clony.internals.status.console.print") as mock_console_print,
+        patch("clony.internals.status.logger.info") as mock_logger_info,
+    ):
+        # Call the display_status_info function
+        display_status_info(status_dict)
+
+        # Verify that console.print was called for the tables
+        assert mock_console_print.call_count > 0
+
+        # Verify that logger.info was called for the helper messages
+        assert mock_logger_info.call_count > 0
+
+        # Get all the arguments passed to console.print
+        call_args_list = [
+            call[0][0] for call in mock_console_print.call_args_list if call[0]
+        ]
+
+        # Check if tables were created for each category
+        tables = [arg for arg in call_args_list if hasattr(arg, "title")]
+        table_titles = [table.title for table in tables if hasattr(table, "title")]
+
+        # Verify that tables with appropriate titles were created
+        assert "Changes to be committed" in table_titles
+        assert "Untracked files" in table_titles
+
+        # Verify the helper messages were logged
+        assert any(
+            "reset HEAD" in msg
+            for msg in [call[0][0] for call in mock_logger_info.call_args_list]
+        )
+        assert any(
+            "stage" in msg
+            for msg in [call[0][0] for call in mock_logger_info.call_args_list]
+        )
+
+
+# Test for display_status_info with clean working tree
+@pytest.mark.unit
+def test_display_status_info_clean():
+    """
+    Test the display_status_info function with a clean working tree.
+
+    This test verifies that the display_status_info function correctly displays
+    a message about a clean working tree when there are no changes.
+    """
+    # Create an empty status dictionary (clean working tree)
+    status_dict = {status: [] for status in FileStatus}
+
+    # Mock the console.print method
+    with patch("clony.internals.status.console.print") as mock_console_print:
+        # Call the display_status_info function
+        display_status_info(status_dict)
+
+        # Verify that console.print was called once
+        assert mock_console_print.call_count == 1
+
+        # Get the argument passed to console.print
+        table = mock_console_print.call_args[0][0]
+
+        # Verify that the table has the correct title
+        assert table.title == "Repository Status"
+
+
+# Test for the display_status_info function with all file status types
+@pytest.mark.unit
+def test_display_status_info_all_statuses():
+    """
+    Test the display_status_info function with all file status types.
+
+    This test verifies that the display_status_info function correctly handles
+    and displays tables for all possible file status categories.
+    """
+    # Create a status dictionary with entries for all status types
+    status_dict = {status: [] for status in FileStatus}
+
+    # Add test files for each status type
+    status_dict[FileStatus.STAGED_NEW] = ["staged_new.txt"]
+    status_dict[FileStatus.STAGED_MODIFIED] = ["staged_modified.txt"]
+    status_dict[FileStatus.STAGED_DELETED] = ["staged_deleted.txt"]
+    status_dict[FileStatus.MODIFIED] = ["modified.txt"]
+    status_dict[FileStatus.DELETED] = ["deleted.txt"]
+    status_dict[FileStatus.BOTH_MODIFIED] = ["both_modified.txt"]
+    status_dict[FileStatus.BOTH_DELETED] = ["both_deleted.txt"]
+    status_dict[FileStatus.UNTRACKED] = ["untracked.txt"]
+
+    # Mock the console.print method and logger.info method
+    with (
+        patch("clony.internals.status.console.print") as mock_console_print,
+        patch("clony.internals.status.logger.info") as mock_logger_info,
+    ):
+        # Call the display_status_info function
+        display_status_info(status_dict)
+
+        # Verify that console.print was called multiple times for tables
+        assert mock_console_print.call_count > 0
+
+        # Verify that logger.info was called for helper messages
+        assert mock_logger_info.call_count > 0
+
+        # Get all the tables passed to console.print
+        call_args_list = [
+            call[0][0] for call in mock_console_print.call_args_list if call[0]
+        ]
+        tables = [arg for arg in call_args_list if hasattr(arg, "title")]
+
+        # Verify that at least three tables were created (staged, unstaged, untracked)
+        assert len(tables) >= 3
+
+
+# Test for display_status_info function with exception
+@pytest.mark.unit
+def test_display_status_info_exception():
+    """
+    Test the exception handling in the display_status_info function.
+
+    This test verifies that the display_status_info function properly catches
+    and logs exceptions that occur during execution.
+    """
+    # Create a valid status dictionary for the initial check
+    status_dict = {status: [] for status in FileStatus}
+
+    # Add some test files to trigger unstaged files section
+    status_dict[FileStatus.MODIFIED] = ["modified.txt"]
+
+    # Mock the console.print method to raise an exception
+    with patch(
+        "clony.internals.status.console.print", side_effect=Exception("Test error")
+    ):
+        # Mock the logger.error function
+        with patch("clony.internals.status.logger.error") as mock_logger:
+            # Call the function, which should catch the exception
+            display_status_info(status_dict)
+
+            # Verify that logger.error was called with the correct error message
+            mock_logger.assert_called_once_with("Error displaying status: Test error")
