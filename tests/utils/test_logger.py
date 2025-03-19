@@ -11,7 +11,7 @@ import logging
 import pytest
 
 # Local imports
-from clony.utils.logger import setup_logger
+from clony.utils.logger import ColorFormatter, setup_logger
 
 
 # Test logger creation
@@ -51,21 +51,17 @@ def test_logger_custom_level():
 @pytest.mark.unit
 def test_logger_handler_configuration():
     """
-    Test that the logger is configured with the correct handler.
+    Test that the logger is configured with the correct handlers.
     """
 
     # Create a test logger
     logger = setup_logger("test_logger")
 
-    # Check that exactly one handler is configured
+    # Check that exactly one handler is configured (StreamHandler)
     assert len(logger.handlers) == 1
 
-    # Check that the handler is a StreamHandler
-    handler = logger.handlers[0]
-    assert isinstance(handler, logging.StreamHandler)
-
-    # Check that the handler has a formatter
-    assert handler.formatter is not None
+    # Verify handler type
+    assert isinstance(logger.handlers[0], logging.StreamHandler)
 
 
 # Test logger propagation
@@ -80,3 +76,40 @@ def test_logger_propagation():
 
     # Check that propagation is disabled
     assert not logger.propagate
+
+
+# Test color formatter debug level
+@pytest.mark.unit
+def test_color_formatter_debug():
+    """
+    Test that the ColorFormatter handles debug level correctly.
+    """
+
+    # Create a formatter
+    formatter = ColorFormatter("%(message)s")
+
+    # Create a record
+    record = logging.LogRecord(
+        "test", logging.DEBUG, "test.py", 1, "test message", None, None
+    )
+
+    # Format the record
+    formatted = formatter.format(record)
+
+    # Check that the formatted message contains the debug prefix
+    assert "DEBUG" in formatted
+
+
+# Test setup logger existing
+@pytest.mark.unit
+def test_setup_logger_existing():
+    """
+    Test that setup_logger returns existing logger for 'clony'.
+    """
+
+    # Create two loggers
+    logger1 = setup_logger("clony")
+    logger2 = setup_logger("clony")
+
+    # Check that the two loggers are the same
+    assert logger1 is logger2

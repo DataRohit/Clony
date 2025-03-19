@@ -18,6 +18,7 @@ from rich.text import Text
 
 # Local imports
 from clony import __version__
+from clony.core.diff import print_diff
 from clony.core.repository import Repository
 from clony.internals.commit import make_commit
 from clony.internals.log import display_commit_logs
@@ -320,9 +321,9 @@ def status(path: str):
         # Get the status of the repository
         _, formatted_status = get_status(path)
 
-        # Display the status
-        console.print("\nOn branch main\n")
-        console.print(formatted_status)
+        # Display the status with styling
+        print("\nOn branch main\n")
+        print(formatted_status)
 
     except Exception as e:
         # Log the error and display an error message
@@ -371,11 +372,8 @@ def reset(commit: str, soft: bool, mixed: bool, hard: bool):
     # Perform the reset
     success = reset_head(commit, mode)
 
-    # Display the result
-    if success:
-        console.print(f"[green]Reset HEAD to {commit} ({mode} mode)[/green]")
-    else:
-        console.print(f"[red]Failed to reset HEAD to {commit}[/red]")
+    # Handle failure
+    if not success:
         sys.exit(1)
 
 
@@ -390,3 +388,36 @@ def log():
 
     # Display the commit history
     display_commit_logs()
+
+
+# Add the diff command
+@cli.command()
+@click.argument("blob1", required=True)
+@click.argument("blob2", required=True)
+@click.option("--path1", default=None, help="The path of the first file.")
+@click.option("--path2", default=None, help="The path of the second file.")
+@click.option(
+    "--algorithm",
+    default="myers",
+    type=click.Choice(["myers", "unified"]),
+    help="The diff algorithm to use.",
+)
+@click.option(
+    "--context-lines",
+    default=3,
+    type=int,
+    help="The number of context lines to show in the unified diff.",
+)
+def diff(
+    blob1: str, blob2: str, path1: str, path2: str, algorithm: str, context_lines: int
+):
+    """Display the differences between two blob objects.
+
+    Compare the contents of two blob objects and show the differences
+    between them on a line-by-line basis."""
+
+    # Get the repository path
+    repo_path = pathlib.Path.cwd()
+
+    # Print the diff
+    print_diff(repo_path, blob1, blob2, path1, path2, algorithm, context_lines)

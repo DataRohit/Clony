@@ -5,6 +5,13 @@ This module contains the core functionality for the Clony Git clone tool.
 """
 
 # Local imports
+from clony.core.diff import (
+    diff_blobs,
+    generate_unified_diff,
+    myers_diff,
+    print_diff,
+    read_git_object,
+)
 from clony.core.objects import (
     calculate_sha1_hash,
     compress_content,
@@ -36,4 +43,9 @@ __all__ = [
     "get_ref_hash",
     "update_ref",
     "Repository",
+    "diff_blobs",
+    "generate_unified_diff",
+    "myers_diff",
+    "print_diff",
+    "read_git_object",
 ]

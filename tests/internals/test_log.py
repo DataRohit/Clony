@@ -15,6 +15,7 @@ from unittest.mock import patch
 
 # Third-party imports
 import pytest
+from colorama import Fore, Style
 
 # Local imports
 from clony.core.objects import create_commit_object, write_object_file
@@ -282,19 +283,21 @@ def test_display_commit_logs(temp_dir: pathlib.Path):
     # Update the main branch reference
     update_ref(temp_dir, "refs/heads/main", commit_hash)
 
-    # Mock the print function to capture output
+    # Mock the print function to capture output and COLOR_SUPPORT
     with patch("builtins.print") as mock_print:
-        # Display the commit logs
-        display_commit_logs(temp_dir)
+        # Mock COLOR_SUPPORT to False to make testing simpler
+        with patch("clony.internals.log.COLOR_SUPPORT", False):
+            # Display the commit logs
+            display_commit_logs(temp_dir)
 
-        # Assert that the print function was called with the expected arguments
-        mock_print.assert_any_call(f"commit {commit_hash}")
-        mock_print.assert_any_call(f"Author: {author_name} <{author_email}>")
+            # Assert that the print function was called with the expected arguments
+            mock_print.assert_any_call(f"commit {commit_hash}")
+            mock_print.assert_any_call(f"Author: {author_name} <{author_email}>")
 
-        # We can't easily assert the date due to timezone differences
-        mock_print.assert_any_call()  # Empty line
-        mock_print.assert_any_call(f"    {message}")
-        mock_print.assert_any_call()  # Empty line
+            # We can't easily assert the date due to timezone differences
+            mock_print.assert_any_call()  # Empty line
+            mock_print.assert_any_call(f"    {message}")
+            mock_print.assert_any_call()  # Empty line
 
 
 # Test for display_commit_logs function with no commits
@@ -330,3 +333,81 @@ def test_display_commit_logs_no_repo():
             mock_error.assert_called_once_with(
                 "Not a git repository. Run 'clony init' to create one."
             )
+
+
+# Test for display_commit_logs function with color
+@pytest.mark.unit
+def test_display_commit_logs_with_color(temp_dir: pathlib.Path):
+    """
+    Test the display_commit_logs function with colorized output.
+    """
+
+    # Create a test commit
+    tree_hash = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+    author_name = "Test User"
+    author_email = "test@example.com"
+    message = "Test commit message"
+
+    # Write a tree object
+    tree_content = b"test tree content"
+    write_object_file(temp_dir, tree_content, "tree")
+
+    # Create a commit object
+    commit_hash = create_commit_object(
+        temp_dir, tree_hash, None, author_name, author_email, message
+    )
+
+    # Update the main branch reference
+    update_ref(temp_dir, "refs/heads/main", commit_hash)
+
+    # Mock the print function to capture output
+    with patch("builtins.print") as mock_print:
+        # Mock COLOR_SUPPORT to True to test colorized output
+        with patch("clony.internals.log.COLOR_SUPPORT", True):
+            # Display the commit logs
+            display_commit_logs(temp_dir)
+
+            # Assert that the print function was called with the expected arguments
+            mock_print.assert_any_call(
+                f"{Fore.YELLOW}commit {commit_hash}{Style.RESET_ALL}"
+            )
+            mock_print.assert_any_call(f"Author: {author_name} <{author_email}>")
+
+            # We can't easily assert the date due to timezone differences
+            mock_print.assert_any_call()  # Empty line
+            mock_print.assert_any_call(f"    {message}")
+            mock_print.assert_any_call()  # Empty line
+
+
+# Test for colorama handling in display_commit_logs
+@pytest.mark.unit
+def test_display_commit_logs_colorama_handling(temp_dir: pathlib.Path):
+    """
+    Test that display_commit_logs handles the COLOR_SUPPORT flag correctly.
+    This indirectly tests both import paths (with and without colorama).
+    """
+    # Create a test commit
+    tree_hash = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+    author_name = "Test User"
+    author_email = "test@example.com"
+    message = "Test commit message"
+    commit_hash = create_commit_object(
+        temp_dir, tree_hash, None, author_name, author_email, message
+    )
+    update_ref(temp_dir, "refs/heads/main", commit_hash)
+
+    # Test with COLOR_SUPPORT = True
+    with patch("clony.internals.log.COLOR_SUPPORT", True):
+        with patch("builtins.print") as mock_print:
+            display_commit_logs(temp_dir)
+            # This covers the code path with colorama
+            mock_print.assert_any_call(
+                f"{Fore.YELLOW}commit {commit_hash}{Style.RESET_ALL}"
+            )
+
+    # Test with COLOR_SUPPORT = False
+    with patch("clony.internals.log.COLOR_SUPPORT", False):
+        with patch("builtins.print") as mock_print:
+            display_commit_logs(temp_dir)
+            # This covers the code path without colorama
+            mock_print.assert_any_call(f"commit {commit_hash}")

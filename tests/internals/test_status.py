@@ -350,17 +350,20 @@ def test_get_repository_status():
     """
 
     # Mock the necessary functions
-    with patch(
-        "clony.internals.status.find_git_repo_path", return_value=Path("/repo")
-    ), patch(
-        "clony.internals.status.get_tracked_files",
-        return_value={"tracked.txt": "hash1"},
-    ), patch(
-        "clony.internals.status.get_staged_files", return_value={"staged.txt": "hash2"}
-    ), patch(
-        "clony.internals.status.get_all_files", return_value={"working.txt"}
-    ), patch(
-        "clony.internals.status.get_file_status", return_value=FileStatus.UNMODIFIED
+    with (
+        patch("clony.internals.status.find_git_repo_path", return_value=Path("/repo")),
+        patch(
+            "clony.internals.status.get_tracked_files",
+            return_value={"tracked.txt": "hash1"},
+        ),
+        patch(
+            "clony.internals.status.get_staged_files",
+            return_value={"staged.txt": "hash2"},
+        ),
+        patch("clony.internals.status.get_all_files", return_value={"working.txt"}),
+        patch(
+            "clony.internals.status.get_file_status", return_value=FileStatus.UNMODIFIED
+        ),
     ):
 
         # Get the status of the repository
@@ -382,10 +385,12 @@ def test_get_status():
     status_dict[FileStatus.MODIFIED] = ["modified.txt"]
 
     # Mock the necessary functions
-    with patch(
-        "clony.internals.status.get_repository_status", return_value=status_dict
-    ), patch(
-        "clony.internals.status.format_status_output", return_value="Formatted output"
+    with (
+        patch("clony.internals.status.get_repository_status", return_value=status_dict),
+        patch(
+            "clony.internals.status.format_status_output",
+            return_value="Formatted output",
+        ),
     ):
 
         # Get the status of the repository
@@ -416,15 +421,22 @@ def test_get_commit_tree():
         assert result == {}
 
     # Test with existing HEAD_TREE file
-    with patch("pathlib.Path.exists", side_effect=[True, True]), patch(
-        "clony.internals.status.read_index_file", return_value={"file.txt": "hash1"}
+    with (
+        patch("pathlib.Path.exists", side_effect=[True, True]),
+        patch(
+            "clony.internals.status.read_index_file", return_value={"file.txt": "hash1"}
+        ),
     ):
         result = get_commit_tree(repo_path, "abcdef")
         assert result == {"file.txt": "hash1"}
 
     # Test with exception
-    with patch("pathlib.Path.exists", side_effect=[True, True]), patch(
-        "clony.internals.status.read_index_file", side_effect=Exception("Test error")
+    with (
+        patch("pathlib.Path.exists", side_effect=[True, True]),
+        patch(
+            "clony.internals.status.read_index_file",
+            side_effect=Exception("Test error"),
+        ),
     ):
         result = get_commit_tree(repo_path, "abcdef")
         assert result == {}
@@ -441,8 +453,11 @@ def test_get_tracked_files():
     repo_path = Path("/repo")
 
     # Test with get_head_commit returning a commit hash
-    with patch("clony.internals.status.get_head_commit", return_value="abcdef"), patch(
-        "clony.internals.status.get_commit_tree", return_value={"file.txt": "hash1"}
+    with (
+        patch("clony.internals.status.get_head_commit", return_value="abcdef"),
+        patch(
+            "clony.internals.status.get_commit_tree", return_value={"file.txt": "hash1"}
+        ),
     ):
         result = get_tracked_files(repo_path)
         assert result == {"file.txt": "hash1"}
@@ -484,8 +499,9 @@ def test_get_all_files():
     ]
 
     # Mock the os.walk function
-    with patch("os.walk", return_value=mock_walk_data), patch(
-        "pathlib.Path.relative_to", side_effect=["file1.txt", "dir1/file2.txt"]
+    with (
+        patch("os.walk", return_value=mock_walk_data),
+        patch("pathlib.Path.relative_to", side_effect=["file1.txt", "dir1/file2.txt"]),
     ):
         result = get_all_files(repo_path)
         assert "file1.txt" in result
@@ -608,8 +624,11 @@ def test_get_commit_tree_with_head_tree():
     commit_hash = "abcdef"
 
     # Test with HEAD_TREE file existing and readable
-    with patch("pathlib.Path.exists", side_effect=[True, True, True]), patch(
-        "clony.internals.status.read_index_file", return_value={"file.txt": "hash1"}
+    with (
+        patch("pathlib.Path.exists", side_effect=[True, True, True]),
+        patch(
+            "clony.internals.status.read_index_file", return_value={"file.txt": "hash1"}
+        ),
     ):
         result = get_commit_tree(repo_path, commit_hash)
         assert result == {"file.txt": "hash1"}
@@ -649,9 +668,14 @@ def test_get_commit_tree_with_head_tree_error():
     commit_hash = "abcdef"
 
     # Test with HEAD_TREE file existing but raising an error when read
-    with patch("pathlib.Path.exists", side_effect=[True, True]), patch(
-        "clony.internals.status.read_index_file", side_effect=Exception("Test error")
-    ), patch("clony.internals.status.logger.error") as mock_logger:
+    with (
+        patch("pathlib.Path.exists", side_effect=[True, True]),
+        patch(
+            "clony.internals.status.read_index_file",
+            side_effect=Exception("Test error"),
+        ),
+        patch("clony.internals.status.logger.error") as mock_logger,
+    ):
         result = get_commit_tree(repo_path, commit_hash)
         assert result == {}
         # Verify that the error was logged
@@ -680,3 +704,83 @@ def test_get_commit_tree_exception_handling():
         # Verify the result and that the error was logged
         assert result == {}
         mock_logger.assert_called_with("Error reading commit tree: Test error")
+
+
+# Test for format_status_output function with COLOR_SUPPORT
+@pytest.mark.unit
+def test_format_status_output_with_color():
+    """
+    Test formatting the status output with color support.
+    """
+
+    # Define the status dictionary with values in each category
+    status_dict = {status: [] for status in FileStatus}
+    status_dict[FileStatus.STAGED_NEW] = ["staged_new.txt"]
+    status_dict[FileStatus.MODIFIED] = ["modified.txt"]
+    status_dict[FileStatus.UNTRACKED] = ["untracked.txt"]
+
+    # Test with COLOR_SUPPORT set to True
+    with (
+        patch("clony.internals.status.COLOR_SUPPORT", True),
+        patch("clony.internals.status.Fore.GREEN", "GREEN"),
+        patch("clony.internals.status.Fore.RED", "RED"),
+        patch("clony.internals.status.Fore.YELLOW", "YELLOW"),
+        patch("clony.internals.status.Fore.BLUE", "BLUE"),
+        patch("clony.internals.status.Style.RESET_ALL", "RESET"),
+    ):
+
+        # Format the status output
+        output = format_status_output(status_dict)
+
+        # Check that the output contains the expected color codes
+        assert "GREENChanges to be committed:RESET" in output
+        assert "BLUEclony reset HEAD <file>...RESET" in output
+        assert "GREENnew file:   staged_new.txtRESET" in output
+        assert "YELLOWChanges not staged for commit:RESET" in output
+        assert "BLUEclony stage <file>...RESET" in output
+        assert "YELLOWmodified:   modified.txtRESET" in output
+        assert "REDUntracked files:RESET" in output
+        assert "REDuntracked.txtRESET" in output
+
+        # Test with empty status_dict (nothing to commit)
+        empty_status_dict = {status: [] for status in FileStatus}
+        empty_output = format_status_output(empty_status_dict)
+        assert "GREENnothing to commit, working tree cleanRESET" in empty_output
+
+    # Test with COLOR_SUPPORT set to False
+    with patch("clony.internals.status.COLOR_SUPPORT", False):
+        # Format the status output
+        output = format_status_output(status_dict)
+
+        # Check that the output does not contain color codes
+        assert "Changes to be committed:" in output
+        assert "clony reset HEAD <file>" in output
+        assert "new file:   staged_new.txt" in output
+        assert "Changes not staged for commit:" in output
+        assert "clony stage <file>" in output
+        assert "modified:   modified.txt" in output
+        assert "Untracked files:" in output
+        assert "untracked.txt" in output
+
+
+# Test for format_status_output function with nothing to commit (for code coverage)
+@pytest.mark.unit
+def test_format_status_output_nothing_to_commit():
+    """
+    Test formatting the status output with nothing to commit and color support.
+    """
+    # Define an empty status dictionary
+    status_dict = {status: [] for status in FileStatus}
+
+    # Test with COLOR_SUPPORT = True
+    with (
+        patch("clony.internals.status.COLOR_SUPPORT", True),
+        patch("clony.internals.status.Fore.GREEN", "GREEN"),
+        patch("clony.internals.status.Style.RESET_ALL", "RESET"),
+    ):
+
+        # Get the output
+        output = format_status_output(status_dict)
+
+        # Check the output
+        assert output == "GREENnothing to commit, working tree cleanRESET"

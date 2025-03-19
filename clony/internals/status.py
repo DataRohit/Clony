@@ -11,6 +11,16 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import Dict, List, Set, Tuple
 
+# Third-party imports
+try:  # pragma: no cover
+    import colorama
+    from colorama import Fore, Style
+
+    colorama.init(autoreset=False)
+    COLOR_SUPPORT = True
+except ImportError:  # pragma: no cover
+    COLOR_SUPPORT = False
+
 # Local imports
 from clony.core.objects import calculate_sha1_hash
 from clony.core.refs import get_head_commit
@@ -352,10 +362,23 @@ def format_status_output(status_dict: Dict[FileStatus, List[str]]) -> str:
 
     # Changes to be committed
     if staged_files:
-        output.append("Changes to be committed:")
-        output.append('  (use "clony reset HEAD <file>..." to unstage)')
+        if COLOR_SUPPORT:
+            output.append(f"{Fore.GREEN}Changes to be committed:{Style.RESET_ALL}")
+            unstage_msg = (
+                f'  (use "{Fore.BLUE}clony reset HEAD <file>...{Style.RESET_ALL}" '
+            )
+            unstage_msg += "to unstage)"
+            output.append(unstage_msg)
+        else:
+            output.append("Changes to be committed:")
+            output.append('  (use "clony reset HEAD <file>..." to unstage)')
         output.append("")
-        output.extend(f"        {f}" for f in staged_files)
+        if COLOR_SUPPORT:
+            output.extend(
+                f"        {Fore.GREEN}{f}{Style.RESET_ALL}" for f in staged_files
+            )
+        else:
+            output.extend(f"        {f}" for f in staged_files)
         output.append("")
 
     # Changes not staged for commit
@@ -373,28 +396,53 @@ def format_status_output(status_dict: Dict[FileStatus, List[str]]) -> str:
 
     # Changes not staged for commit
     if unstaged_files:
-        output.append("Changes not staged for commit:")
-        output.append(
-            '  (use "clony stage <file>..." to update what will be committed)'
-        )
+        if COLOR_SUPPORT:
+            output.append(
+                f"{Fore.YELLOW}Changes not staged for commit:{Style.RESET_ALL}"
+            )
+            update_msg = f'  (use "{Fore.BLUE}clony stage <file>...{Style.RESET_ALL}" '
+            update_msg += "to update what will be committed)"
+            output.append(update_msg)
+        else:
+            output.append("Changes not staged for commit:")
+            output.append(
+                '  (use "clony stage <file>..." to update what will be committed)'
+            )
         output.append("")
-        output.extend(f"        {f}" for f in unstaged_files)
+        if COLOR_SUPPORT:
+            output.extend(
+                f"        {Fore.YELLOW}{f}{Style.RESET_ALL}" for f in unstaged_files
+            )
+        else:
+            output.extend(f"        {f}" for f in unstaged_files)
         output.append("")
 
     # Untracked files
     untracked_files = status_dict[FileStatus.UNTRACKED]
     if untracked_files:
-        output.append("Untracked files:")
-        output.append(
-            '  (use "clony stage <file>..." to include in what will be committed)'
-        )
+        if COLOR_SUPPORT:
+            output.append(f"{Fore.RED}Untracked files:{Style.RESET_ALL}")
+            include_msg = f'  (use "{Fore.BLUE}clony stage <file>...{Style.RESET_ALL}" '
+            include_msg += "to include in what will be committed)"
+            output.append(include_msg)
+        else:
+            output.append("Untracked files:")
+            output.append(
+                '  (use "clony stage <file>..." to include in what will be committed)'
+            )
         output.append("")
-        output.extend(f"        {f}" for f in untracked_files)
+        if COLOR_SUPPORT:
+            output.extend(
+                f"        {Fore.RED}{f}{Style.RESET_ALL}" for f in untracked_files
+            )
+        else:
+            output.extend(f"        {f}" for f in untracked_files)
         output.append("")
 
     # Summary line
     if not any(status_dict.values()):
-        output.append("nothing to commit, working tree clean")
+        msg = "nothing to commit, working tree clean"
+        output.append(f"{Fore.GREEN}{msg}{Style.RESET_ALL}" if COLOR_SUPPORT else msg)
 
     # Return the formatted output
     return "\n".join(output)
