@@ -142,6 +142,43 @@ def colorize_diff_line(line: Tuple[str, str]) -> str:
         return f"{op} {content}"
 
 
+# Function to colorize unified diff lines
+def colorize_unified_diff_line(line: str) -> str:
+    """
+    Colorize a unified diff line based on its prefix.
+
+    Args:
+        line (str): A unified diff line.
+
+    Returns:
+        str: The colorized line.
+    """
+
+    # Check if color support is available
+    if not COLOR_SUPPORT or not line:
+        return line
+
+    # Colorize the line based on its prefix
+    if line.startswith("+++"):
+        # File header (added file)
+        return f"{Fore.BLUE}{line}{Style.RESET_ALL}"
+    elif line.startswith("---"):
+        # File header (removed file)
+        return f"{Fore.BLUE}{line}{Style.RESET_ALL}"
+    elif line.startswith("+"):
+        # Added line
+        return f"{Fore.GREEN}{line}{Style.RESET_ALL}"
+    elif line.startswith("-"):
+        # Removed line
+        return f"{Fore.RED}{line}{Style.RESET_ALL}"
+    elif line.startswith("@@"):
+        # Hunk header
+        return f"{Fore.CYAN}{line}{Style.RESET_ALL}"
+    else:
+        # Context line or other
+        return line
+
+
 # Function to generate a unified diff
 def generate_unified_diff(
     a_lines: List[str],
@@ -258,9 +295,12 @@ def diff_blobs(
         return [colorize_diff_line(line) for line in diff_lines]
     else:
         # Use the unified diff format
-        return generate_unified_diff(
+        unified_diff = generate_unified_diff(
             blob1_lines, blob2_lines, path1, path2, context_lines
         )
+
+        # Colorize each line in the unified diff
+        return [colorize_unified_diff_line(line) for line in unified_diff]
 
 
 # Function to print the diff
