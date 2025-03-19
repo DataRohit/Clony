@@ -11,6 +11,17 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+# Third-party imports
+try:  # pragma: no cover
+    import colorama
+    from colorama import Fore, Style
+
+    # Initialize colorama with appropriate settings for cross-platform support
+    colorama.init(strip=False, convert=True, autoreset=False)
+    COLOR_SUPPORT = True
+except ImportError:  # pragma: no cover
+    COLOR_SUPPORT = False
+
 # Local imports
 from clony.core.refs import get_head_commit
 from clony.internals.staging import find_git_repo_path
@@ -229,8 +240,12 @@ def display_commit_logs(repo_path: Optional[Path] = None) -> None:
         # Format the timestamp
         formatted_date = format_timestamp(author_info)
 
-        # Print the commit information
-        print(f"commit {commit['hash']}")
+        # Print the commit information with the hash in yellow
+        if COLOR_SUPPORT:
+            print(f"{Fore.YELLOW}commit {commit['hash']}{Style.RESET_ALL}")
+        else:
+            print(f"commit {commit['hash']}")
+
         print(f"Author: {author_name} <{email}>")
         print(f"Date:   {formatted_date}")
         print()

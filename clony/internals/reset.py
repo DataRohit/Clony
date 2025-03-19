@@ -9,6 +9,9 @@ supporting soft, mixed, and hard reset modes.
 from pathlib import Path
 from typing import Literal, Optional
 
+# Third-party imports
+import click
+
 # Local imports
 from clony.core.refs import get_head_ref, get_ref_hash, update_ref
 from clony.internals.staging import clear_staging_area, find_git_repo_path
@@ -54,7 +57,7 @@ def validate_commit_reference(repo_path: Path, commit_ref: str) -> Optional[str]
 
             # If multiple matches, it's ambiguous
             elif len(matching_files) > 1:
-                logger.error(f"Ambiguous commit reference: {commit_ref}")
+                click.echo(f"Ambiguous commit reference: {commit_ref}")
                 return None
 
     # Check if it's a branch reference
@@ -175,37 +178,37 @@ def reset_head(
         repo_path = find_git_repo_path(Path.cwd())
 
     if not repo_path:
-        logger.error("Not in a Git repository")
+        click.echo("Not in a Git repository")
         return False
 
     # Validate the commit reference
     commit_hash = validate_commit_reference(repo_path, commit_ref)
     if not commit_hash:
-        logger.error(f"Invalid commit reference: {commit_ref}")
+        click.echo(f"Invalid commit reference: {commit_ref}")
         return False
 
     # Update HEAD to point to the commit
     if not update_head_to_commit(repo_path, commit_hash):
-        logger.error(f"Failed to update HEAD to {commit_hash}")
+        click.echo(f"Failed to update HEAD to {commit_hash}")
         return False
 
     # For mixed and hard reset, update the index
     if mode in ["mixed", "hard"]:
         if not update_index_to_commit(repo_path, commit_hash):
-            logger.error(f"Failed to update index to match commit {commit_hash}")
+            click.echo(f"Failed to update index to match commit {commit_hash}")
             return False
 
     # For hard reset, update the working directory
     if mode == "hard":
         if not update_working_dir_to_commit(repo_path, commit_hash):
             # Log the error
-            logger.error(
+            click.echo(
                 f"Failed to update working directory to match commit {commit_hash}"
             )
 
             # Return False to indicate failure
             return False
 
-    # Log the successful reset
-    logger.info(f"Reset HEAD to {commit_hash} ({mode} mode)")
+    # Log the successful reset using click.echo
+    click.echo(f"Reset HEAD to {commit_hash} ({mode} mode)")
     return True

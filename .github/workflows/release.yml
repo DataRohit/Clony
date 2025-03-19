@@ -18,6 +18,8 @@ jobs:
         steps:
             # Step 1: Check out the repository code at the tagged version
             - uses: actions/checkout@v3
+              with:
+                  fetch-depth: 0 # Fetch all history and tags
 
             # Step 2: Set up Python environment
             # Using Python 3.10 for building to ensure compatibility
@@ -31,6 +33,8 @@ jobs:
               run: |
                   # Upgrade pip to latest version
                   python -m pip install --upgrade pip
+                  # Install build dependencies explicitly
+                  python -m pip install setuptools wheel setuptools_scm>=6.2
                   # Install project in editable mode with dev dependencies
                   python -m pip install -e ".[dev]"
                   # Install build tools for packaging
@@ -39,7 +43,34 @@ jobs:
             # Step 4: Build source distribution and wheel
             - name: Build package
               run: |
-                  python -m build
+                  # Debug info
+                  echo "GitHub ref: $GITHUB_REF"
+                  echo "GitHub ref name: $GITHUB_REF_NAME"
+
+                  # Extract version from git tag (remove 'v' prefix)
+                  VERSION=$(echo $GITHUB_REF_NAME | sed 's/^v//')
+                  echo "Building version: $VERSION"
+
+                  # Create version file manually to override setuptools_scm
+                  echo "# Generated from tag" > clony/_version.py
+                  echo "version = '$VERSION'" >> clony/_version.py
+
+                  # Update hardcoded version in __init__.py as well
+                  sed -i "s/__version__ = \".*\"/__version__ = \"$VERSION\"  # Fallback version/" clony/__init__.py
+
+                  # Disable setuptools_scm entirely by setting environment variables
+                  export SETUPTOOLS_SCM_PRETEND_VERSION=$VERSION
+
+                  # Show generated version files
+                  cat clony/_version.py
+                  cat clony/__init__.py | grep __version__
+
+                  # Build the package with explicit version
+                  python -m build --no-isolation
+
+                  # Verify version in built packages
+                  echo "Built packages in dist/:"
+                  ls -la dist/
 
             # Step 5: Create GitHub Release with built artifacts
             # This step uploads the built distributions and generates release notes
