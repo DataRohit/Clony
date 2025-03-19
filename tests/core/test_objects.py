@@ -24,6 +24,7 @@ from clony.core.objects import (
     create_blob_object,
     create_commit_object,
     create_tree_object,
+    parse_tree_object,
     write_object_file,
 )
 from clony.core.repository import Repository
@@ -402,3 +403,81 @@ def test_create_commit_object_with_parent(temp_dir: pathlib.Path):
     assert f"author {author_name} <{author_email}>" in commit_content
     assert f"committer {author_name} <{author_email}>" in commit_content
     assert second_message in commit_content
+
+
+# Test for parse_tree_object function
+@pytest.mark.unit
+def test_parse_tree_object():
+    """
+    Test the parse_tree_object function.
+    """
+
+    # Create a test tree content
+    # Format: mode<space>name<null>sha1
+    mode1 = b"100644"  # Regular file
+    name1 = b"file.txt"
+    sha1_1 = bytes.fromhex("1234567890" * 4)  # 20 bytes for SHA-1
+
+    mode2 = b"40000"  # Directory
+    name2 = b"dir"
+    sha1_2 = bytes.fromhex("abcdef0123" * 4)  # 20 bytes for SHA-1
+
+    # Combine the entries
+    tree_content = (
+        mode1 + b" " + name1 + b"\0" + sha1_1 + mode2 + b" " + name2 + b"\0" + sha1_2
+    )
+
+    # Parse the tree object
+    entries = parse_tree_object(tree_content)
+
+    # Assert that we got two entries
+    assert len(entries) == 2
+
+    # Check the first entry (file)
+    mode, obj_type, sha1_hash, name = entries[0]
+    assert mode == "100644"
+    assert obj_type == "blob"
+    assert sha1_hash == "1234567890" * 4
+    assert name == "file.txt"
+
+    # Check the second entry (directory)
+    mode, obj_type, sha1_hash, name = entries[1]
+    assert mode == "40000"
+    assert obj_type == "tree"
+    assert sha1_hash == "abcdef0123" * 4
+    assert name == "dir"
+
+    # Test with invalid content
+    assert parse_tree_object(b"") == []  # Empty content
+    assert parse_tree_object(b"invalid") == []  # Invalid content
+    assert parse_tree_object(b"100644 file.txt") == []  # Missing hash
+
+
+# Test for parse_tree_object function with edge cases
+@pytest.mark.unit
+def test_parse_tree_object_edge_cases():
+    """
+    Test the parse_tree_object function with various edge cases.
+    """
+
+    # Test with content that has no space after mode
+    content = b"100644"
+    assert parse_tree_object(content) == []
+
+    # Test with content that has no null byte after name
+    content = b"100644 file.txt"
+    assert parse_tree_object(content) == []
+
+    # Test with content that has incomplete SHA-1 hash
+    content = b"100644 file.txt\0" + bytes.fromhex("1234")  # Only 2 bytes instead of 20
+    assert parse_tree_object(content) == []
+
+    # Test with content that has multiple entries but second entry is invalid
+    mode1 = b"100644"
+    name1 = b"file1.txt"
+    sha1_1 = bytes.fromhex("1234567890" * 4)
+    mode2 = b"100644"  # Second entry is incomplete
+    content = mode1 + b" " + name1 + b"\0" + sha1_1 + mode2
+    entries = parse_tree_object(content)
+    assert len(entries) == 1  # Only first entry should be parsed
+    assert entries[0][3] == "file1.txt"  # Verify first entry was parsed correctly

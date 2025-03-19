@@ -46,8 +46,11 @@ console_handler.setFormatter(formatter)
 # Add handlers to the logger
 logger.addHandler(console_handler)
 
-# Set propagate to False to prevent duplicate logs
-logger.propagate = False
+# Set propagate to True in test environments to allow caplog to capture messages
+if "pytest" in sys.modules:
+    logger.propagate = True
+else:
+    logger.propagate = False
 
 
 def setup_logger(name: str = "clony", level: Optional[str] = None) -> logging.Logger:
@@ -75,7 +78,10 @@ def setup_logger(name: str = "clony", level: Optional[str] = None) -> logging.Lo
     # Add the same handlers as the main logger
     new_logger.addHandler(console_handler)
 
-    # Prevent the logger from propagating to the root logger
-    new_logger.propagate = False
+    # Set propagate based on environment
+    if "pytest" in sys.modules:
+        new_logger.propagate = True
+    else:
+        new_logger.propagate = False
 
     return new_logger

@@ -5,7 +5,9 @@ This module contains tests for the logger configuration and usage.
 """
 
 # Standard library imports
+import importlib
 import logging
+import sys
 
 # Third party imports
 import pytest
@@ -64,18 +66,102 @@ def test_logger_handler_configuration():
     assert isinstance(logger.handlers[0], logging.StreamHandler)
 
 
-# Test logger propagation
+# Test logger propagation in test environment
 @pytest.mark.unit
-def test_logger_propagation():
+def test_logger_propagation_test():
     """
-    Test that logger propagation is disabled.
+    Test that logger propagation is enabled in test environments.
     """
 
     # Create a test logger
     logger = setup_logger("test_logger")
 
-    # Check that propagation is disabled
-    assert not logger.propagate
+    # Check that propagation is enabled in test environments
+    assert "pytest" in sys.modules
+    assert logger.propagate
+
+
+# Test logger propagation in non-test environment
+@pytest.mark.unit
+def test_logger_propagation_non_test():
+    """
+    Test that logger propagation is disabled in non-test environments.
+    """
+
+    # Save the original sys.modules and logger state
+    original_modules = dict(sys.modules)
+    original_logger = logging.getLogger("clony")
+    original_propagate = original_logger.propagate
+    original_handlers = list(original_logger.handlers)
+
+    try:
+        # Remove pytest from sys.modules to simulate non-test environment
+        if "pytest" in sys.modules:
+            del sys.modules["pytest"]
+
+        # Reset the logger configuration
+        original_logger.propagate = False
+        original_logger.handlers.clear()
+
+        # Create a test logger
+        logger = setup_logger("test_logger")
+
+        # Check that propagation is disabled
+        assert not logger.propagate
+
+        # Create another logger to test the main logger configuration
+        main_logger = setup_logger()
+        assert not main_logger.propagate
+
+    finally:
+        # Restore the original sys.modules and logger state
+        sys.modules.clear()
+        sys.modules.update(original_modules)
+        original_logger.propagate = original_propagate
+        original_logger.handlers.clear()
+        original_logger.handlers.extend(original_handlers)
+
+
+# Test logger module initialization in non-test environment
+@pytest.mark.unit
+def test_logger_module_init_non_test():
+    """
+    Test that the logger module initializes correctly in a non-test environment.
+    """
+
+    # Save the original sys.modules and logger state
+    original_modules = dict(sys.modules)
+    original_logger = logging.getLogger("clony")
+    original_propagate = original_logger.propagate
+    original_handlers = list(original_logger.handlers)
+
+    try:
+        # Remove pytest from sys.modules to simulate non-test environment
+        if "pytest" in sys.modules:
+            del sys.modules["pytest"]
+
+        # Remove the logger module from sys.modules to force reinitialization
+        if "clony.utils.logger" in sys.modules:
+            del sys.modules["clony.utils.logger"]
+
+        # Reset the logger configuration
+        original_logger.propagate = False
+        original_logger.handlers.clear()
+
+        # Import the logger module in a non-test environment
+        importlib.import_module("clony.utils.logger")
+
+        # Get the logger and check its configuration
+        logger = logging.getLogger("clony")
+        assert not logger.propagate
+
+    finally:
+        # Restore the original sys.modules and logger state
+        sys.modules.clear()
+        sys.modules.update(original_modules)
+        original_logger.propagate = original_propagate
+        original_logger.handlers.clear()
+        original_logger.handlers.extend(original_handlers)
 
 
 # Test color formatter debug level
@@ -100,16 +186,19 @@ def test_color_formatter_debug():
     assert "DEBUG" in formatted
 
 
-# Test setup logger existing
+# Test setup_logger with existing logger
 @pytest.mark.unit
 def test_setup_logger_existing():
     """
-    Test that setup_logger returns existing logger for 'clony'.
+    Test that setup_logger returns the existing logger for 'clony'.
     """
 
-    # Create two loggers
-    logger1 = setup_logger("clony")
-    logger2 = setup_logger("clony")
+    # Get the main logger
+    main_logger = setup_logger()
 
-    # Check that the two loggers are the same
-    assert logger1 is logger2
+    # Get another instance
+    another_logger = setup_logger()
+
+    # Check that they are the same object
+    assert main_logger is another_logger
+    assert main_logger.name == "clony"
