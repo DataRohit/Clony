@@ -1,2 +1,2 @@
 # Generated manually
-version = "0.1.10"
+version = "0.1.11"
