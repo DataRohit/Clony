@@ -28,6 +28,7 @@
 - 📂 **Smart file staging** preventing unchanged file commits
 - 🔄 **Flexible commit system** with custom messages and authors
 - 🔙 **Multi-mode reset** supporting soft, mixed, and hard resets
+- 🌿 **Branch management** with create, list, and delete operations
 - 🧩 **Modular architecture** for easy extensibility
 - 📊 **100% test coverage** ensuring reliability
 - 🚀 **Intuitive commands** with consistent syntax
@@ -681,6 +682,103 @@ The reset command performs several operations depending on the mode:
 6. Shows information about the commit you've reset to
 7. Handles errors such as invalid commit references or repository issues
 
+#### `branch`
+
+Create a new branch in the repository. This command creates a new branch pointing to the specified commit or the current HEAD if no commit is specified.
+
+```bash
+# Basic Usage
+clony branch <branch_name>  # Create a new branch pointing to HEAD
+clony branch <branch_name> --commit <commit_hash>  # Create a branch pointing to a specific commit
+
+# Options
+--commit TEXT        # The commit hash to point the branch to (default: HEAD)
+--help, -h          # Show help for branch command
+```
+
+**Examples:**
+
+```bash
+# Create a new branch pointing to HEAD
+$ clony branch feature-branch
+[03/20/25 18:26:32] INFO     Created branch 'feature-branch' pointing to
+                             1cf1a49fed25e8cd86109dd61e009c9ab5c4f510
+
+# Create a branch pointing to a specific commit
+$ clony branch old-branch --commit b68a0efa
+[03/20/25 18:26:35] INFO     Created branch 'old-branch' pointing to
+                             b68a0efae1cd79937eb7466065db7fbd5dc4969a
+
+# Try to create a branch with invalid commit
+$ clony branch invalid-branch --commit invalid-hash
+[03/20/25 18:26:38] ERROR    Invalid commit reference: invalid-hash
+```
+
+#### `branches`
+
+List all branches in the repository. This command displays all branches and indicates which branch is currently checked out.
+
+```bash
+# Basic Usage
+clony branches  # List all branches
+
+# Options
+--help, -h     # Show help for branches command
+```
+
+**Examples:**
+
+```bash
+# List all branches
+$ clony branches
+          Branches          
+┏━━━━━━━━━┳━━━━━━━━━━━━━━━━┓
+┃ Current ┃ Branch         ┃
+┡━━━━━━━━━╇━━━━━━━━━━━━━━━━┩
+│         │ feature-branch │
+│    ✓    │ main           │
+└─────────┴────────────────┘
+
+# List branches in a repository with only main branch
+$ clony branches
+      Branches      
+┏━━━━━━━━━┳━━━━━━━━┓
+┃ Current ┃ Branch ┃
+┡━━━━━━━━━╇━━━━━━━━┩
+│    ✓    │ main   │
+└─────────┴────────┘
+```
+
+#### `branch-delete`
+
+Delete a branch from the repository. This command removes a branch reference, with an option to force delete the current branch.
+
+```bash
+# Basic Usage
+clony branch-delete <branch_name>  # Delete a branch
+clony branch-delete <branch_name> --force  # Force delete a branch
+
+# Options
+--force, -f       # Force delete the current branch
+--help, -h        # Show help for branch-delete command
+```
+
+**Examples:**
+
+```bash
+# Delete a branch
+$ clony branch-delete feature-branch
+[03/20/25 18:27:06] INFO     Deleted branch: feature-branch
+
+# Try to delete the current branch
+$ clony branch-delete main
+[03/20/25 18:27:02] ERROR    Cannot delete the current branch: main
+
+# Force delete the current branch
+$ clony branch-delete main --force
+[03/20/25 18:27:10] INFO     Force deleted current branch: main
+```
+
 ## 💻 Development
 
 Clony is built with a focus on code quality, test coverage, and maintainability. The project follows a modular architecture that makes it easy to extend and enhance.
@@ -700,6 +798,7 @@ The codebase is organized into several key modules:
   - `reset.py`: Implements reset functionality with different modes
   - `staging.py`: Manages the staging area and file staging
   - `status.py`: Manages the working tree status functionality
+  - `branch.py`: Handles branch creation, listing, and deletion
 
 - **Utils**: Contains utility functions and helpers
   - `logger.py`: Configures logging throughout the application

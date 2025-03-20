@@ -8,7 +8,7 @@ This package provides a Python-based Git clone tool with a modern CLI interface.
 try:
     from clony._version import version as __version__
 except ImportError:  # pragma: no cover
-    __version__ = "0.1.9"  # Fallback version
+    __version__ = "0.1.10"  # Fallback version
 
 # Import core modules for easier access
 from clony.core.repository import Repository

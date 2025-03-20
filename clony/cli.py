@@ -20,6 +20,12 @@ from rich.text import Text
 from clony import __version__
 from clony.core.diff import print_diff, read_git_object
 from clony.core.objects import parse_tree_object
+from clony.core.refs import (
+    create_branch,
+    delete_branch,
+    get_current_branch,
+    list_branches,
+)
 from clony.core.repository import Repository
 from clony.internals.commit import make_commit
 from clony.internals.log import display_commit_logs, parse_commit_object
@@ -523,3 +529,108 @@ def blobs(commit: str):
         # Log the error and exit
         logger.error(f"Error retrieving blob hashes: {str(e)}")
         sys.exit(1)
+
+
+# Branch command to create a new branch
+@cli.command()
+@click.argument("branch_name", required=True)
+@click.option(
+    "--commit",
+    "-c",
+    default=None,
+    help="The commit hash to create the branch from. Defaults to HEAD.",
+)
+def branch(branch_name: str, commit: str):
+    """Create a new branch at the specified commit.
+
+    This command creates a new branch pointing to the specified commit
+    (or to HEAD if no commit is specified).
+    """
+
+    try:
+        # Get the current directory
+        current_dir = pathlib.Path.cwd()
+
+        # Create the branch
+        create_branch(current_dir, branch_name, commit)
+
+    except Exception as e:
+        # Log the error
+        logger.error(f"Error creating branch: {str(e)}")
+
+
+# Branch command to list all branches
+@cli.command()
+def branches():
+    """List all branches in the repository.
+
+    This command lists all branches in the repository, highlighting
+    the current branch.
+    """
+
+    try:
+        # Get the current directory
+        current_dir = pathlib.Path.cwd()
+
+        # Get the current branch
+        current = get_current_branch(current_dir)
+
+        # Get all branches
+        all_branches = list_branches(current_dir)
+
+        # Create a table for the branches
+        table = Table(title="[bold blue]Branches[/bold blue]", border_style="blue")
+        table.add_column("Current", style="cyan", justify="center")
+        table.add_column("Branch", style="green")
+
+        # Check if there are any branches
+        if not all_branches:
+            logger.error("No branches found")
+            return
+
+        # Add the branches to the table
+        for branch in all_branches:
+            # Mark the current branch with an asterisk
+            is_current = branch == current
+            marker = "✓" if is_current else ""
+
+            # Add the branch to the table
+            table.add_row(marker, f"[bold]{branch}[/bold]" if is_current else branch)
+
+        # Print the table
+        console.print(table)
+
+    except Exception as e:
+        # Log the error
+        logger.error(f"Error listing branches: {str(e)}")
+
+        # Display the error
+        logger.error(f"Error: {str(e)}")
+
+
+# Branch command to delete a branch
+@cli.command()
+@click.argument("branch_name", required=True)
+@click.option(
+    "--force",
+    "-f",
+    is_flag=True,
+    help="Force deletion even if it's the current branch.",
+)
+def branch_delete(branch_name: str, force: bool):
+    """Delete a branch.
+
+    This command deletes the specified branch. By default, it will not delete
+    the current branch unless the --force option is used.
+    """
+
+    try:
+        # Get the current directory
+        current_dir = pathlib.Path.cwd()
+
+        # Delete the branch
+        delete_branch(current_dir, branch_name, force)
+
+    except Exception as e:
+        # Log the error
+        logger.error(f"Error deleting branch: {str(e)}")
