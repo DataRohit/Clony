@@ -137,3 +137,127 @@ def get_head_commit(repo_path: Path) -> Optional[str]:
     else:
         # HEAD is a direct commit hash
         return head_ref
+
+
+# Function to create a new branch
+def create_branch(
+    repo_path: Path, branch_name: str, commit_hash: Optional[str] = None
+) -> bool:
+    """
+    Create a new branch pointing to a commit.
+
+    Args:
+        repo_path (Path): Path to the repository.
+        branch_name (str): The name of the branch to create.
+        commit_hash (Optional[str]): The commit hash to point to. If None, use HEAD.
+
+    Returns:
+        bool: True if branch creation was successful, False otherwise.
+    """
+
+    # Ensure branch_name does not contain invalid characters
+    if "/" in branch_name:
+        logger.error(f"Branch name cannot contain '/': {branch_name}")
+        return False
+
+    # Define the branch reference path
+    branch_ref = f"refs/heads/{branch_name}"
+    branch_path = repo_path / ".git" / branch_ref
+
+    # Check if branch already exists
+    if branch_path.exists():
+        logger.error(f"Branch already exists: {branch_name}")
+        return False
+
+    # If no commit_hash provided, use HEAD commit
+    if commit_hash is None:
+        commit_hash = get_head_commit(repo_path)
+
+        # Check if HEAD commit exists
+        if commit_hash is None:
+            logger.error("Cannot create branch: HEAD reference is invalid")
+            return False
+
+    # Create the branch by updating the reference
+    try:
+        update_ref(repo_path, branch_ref, commit_hash)
+        logger.info(f"Created branch '{branch_name}' pointing to {commit_hash}")
+        return True
+    except Exception as e:
+        logger.error(f"Error creating branch: {str(e)}")
+        return False
+
+
+# Function to list all branches
+def list_branches(repo_path: Path) -> list[str]:
+    """
+    List all branches in the repository.
+
+    Args:
+        repo_path (Path): Path to the repository.
+
+    Returns:
+        list[str]: A list of branch names.
+    """
+
+    # Define the heads directory path
+    heads_dir = repo_path / ".git" / "refs" / "heads"
+
+    # Check if the heads directory exists
+    if not heads_dir.exists():
+        logger.warning("No branches found (refs/heads directory does not exist)")
+        return []
+
+    # Get all files in the heads directory (branches)
+    branches = []
+
+    # Walk through all files in the heads directory and subdirectories
+    for branch_file in heads_dir.glob("**/*"):
+        if branch_file.is_file():
+            # Get the relative path from the heads directory
+            rel_path = branch_file.relative_to(heads_dir)
+            # Convert to string path and join with forward slashes
+            branch_name = str(rel_path).replace("\\", "/")
+            branches.append(branch_name)
+
+    return sorted(branches)
+
+
+# Function to delete a branch
+def delete_branch(repo_path: Path, branch_name: str, force: bool = False) -> bool:
+    """
+    Delete a branch from the repository.
+
+    Args:
+        repo_path (Path): Path to the repository.
+        branch_name (str): The name of the branch to delete.
+        force (bool): If True, delete the branch even if it's the current branch.
+
+    Returns:
+        bool: True if deletion was successful, False otherwise.
+    """
+
+    # Get the current branch
+    current_branch = get_current_branch(repo_path)
+
+    # Check if attempting to delete the current branch
+    if current_branch == branch_name and not force:
+        logger.error(f"Cannot delete the current branch: {branch_name}")
+        return False
+
+    # Define the branch reference path
+    branch_ref_path = repo_path / ".git" / "refs" / "heads" / branch_name
+
+    # Check if branch exists
+    if not branch_ref_path.exists():
+        logger.error(f"Branch does not exist: {branch_name}")
+        return False
+
+    # Delete the branch reference file
+    try:
+        branch_ref_path.unlink()
+        logger.info(f"Deleted branch: {branch_name}")
+        return True
+    except Exception as e:
+        logger.error(f"Error deleting branch: {str(e)}")
+        return False
