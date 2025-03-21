@@ -173,7 +173,7 @@ def help_command(ctx):
 @click.pass_context
 def cli(ctx, help, version):
     """
-    Clony: A modern Git clone tool with a cool CLI interface.
+    Clony: A modern Git clone tool with a colorful CLI interface.
 
     Run 'clony --help' for usage information.
     """
