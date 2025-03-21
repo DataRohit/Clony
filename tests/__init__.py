@@ -5,4 +5,4 @@ This package contains tests for the Clony Git clone tool.
 """
 
 # Version information
-__version__ = "0.1.10"
+__version__ = "0.1.11"
