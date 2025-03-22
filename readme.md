@@ -56,8 +56,7 @@
     - [diff](#diff)
     - [reset](#reset)
     - [branch](#branch)
-    - [branches](#branches)
-    - [branch-delete](#branch-delete)
+    - [checkout](#checkout)
 - [Development](#-development)
   - [Architecture Overview](#architecture-overview)
   - [Development Environment Setup](#development-environment-setup)
@@ -714,9 +713,15 @@ Create a new branch in the repository. This command creates a new branch pointin
 # Basic Usage
 clony branch <branch_name>  # Create a new branch pointing to HEAD
 clony branch <branch_name> --commit <commit_hash>  # Create a branch pointing to a specific commit
+clony branch <branch_name> --delete  # Delete a branch
+clony branch <branch_name> --delete --force  # Force delete a branch
+clony branch --list  # List all branches in the repository
 
 # Options
 --commit TEXT        # The commit hash to point the branch to (default: HEAD)
+--delete, -d        # Delete the specified branch
+--force, -f         # Force operation (such as deleting current branch)
+--list, -l          # List all branches in the repository
 --help, -h          # Show help for branch command
 ```
 
@@ -736,25 +741,21 @@ $ clony branch old-branch --commit b68a0efa
 # Try to create a branch with invalid commit
 $ clony branch invalid-branch --commit invalid-hash
 [03/20/25 18:26:38] ERROR    Invalid commit reference: invalid-hash
-```
 
-#### `branches`
+# Delete a branch
+$ clony branch feature-branch --delete
+[03/20/25 18:27:06] INFO     Deleted branch: feature-branch
 
-List all branches in the repository. This command displays all branches and indicates which branch is currently checked out.
+# Try to delete the current branch
+$ clony branch main --delete
+[03/20/25 18:27:02] ERROR    Cannot delete the current branch: main
 
-```bash
-# Basic Usage
-clony branches  # List all branches
+# Force delete the current branch
+$ clony branch main --delete --force
+[03/20/25 18:27:10] INFO     Force deleted current branch: main
 
-# Options
---help, -h     # Show help for branches command
-```
-
-**Examples:**
-
-```bash
 # List all branches
-$ clony branches
+$ clony branch --list
           Branches          
 ┏━━━━━━━━━┳━━━━━━━━━━━━━━━━┓
 ┃ Current ┃ Branch         ┃
@@ -762,46 +763,105 @@ $ clony branches
 │         │ feature-branch │
 │    ✓    │ main           │
 └─────────┴────────────────┘
-
-# List branches in a repository with only main branch
-$ clony branches
-      Branches      
-┏━━━━━━━━━┳━━━━━━━━┓
-┃ Current ┃ Branch ┃
-┡━━━━━━━━━╇━━━━━━━━┩
-│    ✓    │ main   │
-└─────────┴────────┘
 ```
 
-#### `branch-delete`
+#### `checkout`
 
-Delete a branch from the repository. This command removes a branch reference, with an option to force delete the current branch.
+Checkout a branch, commit, or restore files. This command has two main functionalities:
+
+1. **Branch/Commit Checkout**: Updates the HEAD, index, and working directory to match the state of the specified branch or commit.
+2. **File Restoration**: Restores specific files from a branch or commit without changing the current branch.
 
 ```bash
 # Basic Usage
-clony branch-delete <branch_name>  # Delete a branch
-clony branch-delete <branch_name> --force  # Force delete a branch
+clony checkout <target>  # Checkout a branch or commit
+clony checkout <target> <file_paths>...  # Restore specific files from a branch or commit
 
 # Options
---force, -f       # Force delete the current branch
---help, -h        # Show help for branch-delete command
+--force, -f           # Force checkout even if there are uncommitted changes
+--help, -h            # Show help for checkout command
 ```
 
 **Examples:**
 
 ```bash
-# Delete a branch
-$ clony branch-delete feature-branch
-[03/20/25 18:27:06] INFO     Deleted branch: feature-branch
+# Checkout a branch
+$ clony checkout feature-branch
+Checking out feature-branch
+                    Checkout Results                    
+┏━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┓
+┃ Target         ┃ Type   ┃ HEAD State ┃ Files Updated ┃
+┡━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━┩
+│ feature-branch │ Branch │ Attached   │ 3             │
+└────────────────┴────────┴────────────┴───────────────┘
 
-# Try to delete the current branch
-$ clony branch-delete main
-[03/20/25 18:27:02] ERROR    Cannot delete the current branch: main
+# Checkout a commit (detached HEAD)
+$ clony checkout d2c4431
+Checking out d2c4431
+                Checkout Results                 
+┏━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┓
+┃ Target  ┃ Type   ┃ HEAD State ┃ Files Updated ┃
+┡━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━┩
+│ d2c4431 │ Commit │ Detached   │ 3             │
+└─────────┴────────┴────────────┴───────────────┘
 
-# Force delete the current branch
-$ clony branch-delete main --force
-[03/20/25 18:27:10] INFO     Force deleted current branch: main
+# Checkout will fail if there are uncommitted changes
+$ clony checkout main
+Checking out main
+                Checkout Conflicts                
+┏━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ File      ┃ Status   ┃ Action Required         ┃
+┡━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ file1.txt │ Modified │ Commit or stash changes │
+└───────────┴──────────┴─────────────────────────┘
+Checkout failed.
+
+# Force checkout to overwrite uncommitted changes
+$ clony checkout main --force
+Checking out main
+                Checkout Results                
+┏━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┓
+┃ Target ┃ Type   ┃ HEAD State ┃ Files Updated ┃
+┡━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━┩
+│ main   │ Branch │ Attached   │ 3             │
+└────────┴────────┴────────────┴───────────────┘
+
+# Restore a specific file from a commit
+$ clony checkout 9efa21c file1.txt
+Restoring file 'file1.txt' from 9efa21c
+Restored 1 file(s) from 9efa21c
+
+# Restore will fail if there are local modifications
+$ clony checkout 9efa21c file1.txt
+Restoring file 'file1.txt' from 9efa21c
+                Checkout Conflicts                
+┏━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ File      ┃ Status   ┃ Action Required         ┃
+┡━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ file1.txt │ Modified │ Commit or stash changes │
+└───────────┴──────────┴─────────────────────────┘
+Failed to restore files.
+
+# Force restore to overwrite local modifications
+$ clony checkout 9efa21c file1.txt --force
+Restoring file 'file1.txt' from 9efa21c
+Restored 1 file(s) from 9efa21c
 ```
+
+The checkout command performs several key operations:
+1. For branch/commit checkout:
+   - Updates HEAD to point to the branch or commit
+   - Updates the index (staging area) to match the tree
+   - Updates the working directory files
+   - Provides a warning when entering a detached HEAD state
+
+2. For file restoration:
+   - Extracts the specified files from the target commit/branch
+   - Updates only those files in the working directory
+   - Preserves the current branch and HEAD state
+   - Detects conflicts with local modifications
+
+The `--force` flag overrides conflict detection and allows the command to proceed even when uncommitted changes would be lost. Use this option with caution as it can lead to data loss.
 
 ## 💻 Development
 
