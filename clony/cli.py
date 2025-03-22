@@ -533,104 +533,87 @@ def blobs(commit: str):
 
 # Branch command to create a new branch
 @cli.command()
-@click.argument("branch_name", required=True)
+@click.argument("branch_name", required=False)
 @click.option(
     "--commit",
     "-c",
     default=None,
     help="The commit hash to create the branch from. Defaults to HEAD.",
 )
-def branch(branch_name: str, commit: str):
-    """Create a new branch at the specified commit.
-
-    This command creates a new branch pointing to the specified commit
-    (or to HEAD if no commit is specified).
-    """
-
-    try:
-        # Get the current directory
-        current_dir = pathlib.Path.cwd()
-
-        # Create the branch
-        create_branch(current_dir, branch_name, commit)
-
-    except Exception as e:
-        # Log the error
-        logger.error(f"Error creating branch: {str(e)}")
-
-
-# Branch command to list all branches
-@cli.command()
-def branches():
-    """List all branches in the repository.
-
-    This command lists all branches in the repository, highlighting
-    the current branch.
-    """
-
-    try:
-        # Get the current directory
-        current_dir = pathlib.Path.cwd()
-
-        # Get the current branch
-        current = get_current_branch(current_dir)
-
-        # Get all branches
-        all_branches = list_branches(current_dir)
-
-        # Create a table for the branches
-        table = Table(title="[bold blue]Branches[/bold blue]", border_style="blue")
-        table.add_column("Current", style="cyan", justify="center")
-        table.add_column("Branch", style="green")
-
-        # Check if there are any branches
-        if not all_branches:
-            logger.error("No branches found")
-            return
-
-        # Add the branches to the table
-        for branch in all_branches:
-            # Mark the current branch with an asterisk
-            is_current = branch == current
-            marker = "✓" if is_current else ""
-
-            # Add the branch to the table
-            table.add_row(marker, f"[bold]{branch}[/bold]" if is_current else branch)
-
-        # Print the table
-        console.print(table)
-
-    except Exception as e:
-        # Log the error
-        logger.error(f"Error listing branches: {str(e)}")
-
-        # Display the error
-        logger.error(f"Error: {str(e)}")
-
-
-# Branch command to delete a branch
-@cli.command()
-@click.argument("branch_name", required=True)
+@click.option(
+    "--delete",
+    "-d",
+    is_flag=True,
+    help="Delete the specified branch.",
+)
 @click.option(
     "--force",
     "-f",
     is_flag=True,
-    help="Force deletion even if it's the current branch.",
+    help="Force operation, such as deleting the current branch.",
 )
-def branch_delete(branch_name: str, force: bool):
-    """Delete a branch.
+@click.option(
+    "--list",
+    "-l",
+    is_flag=True,
+    help="List all branches in the repository.",
+)
+def branch(branch_name: str, commit: str, delete: bool, force: bool, list: bool):
+    """Manage Git branches.
 
-    This command deletes the specified branch. By default, it will not delete
-    the current branch unless the --force option is used.
+    This command can create, delete, or list branches. By default, it creates a branch
+    pointing to the current HEAD or a specified commit.
+
+    Use --delete (-d) to delete a branch instead of creating one.
+    Use --force (-f) to force operations like deleting the current branch.
+    Use --list (-l) to list all branches in the repository.
     """
 
     try:
         # Get the current directory
         current_dir = pathlib.Path.cwd()
 
-        # Delete the branch
-        delete_branch(current_dir, branch_name, force)
+        if list:
+            # List all branches
+            # Get the current branch
+            current = get_current_branch(current_dir)
+
+            # Get all branches
+            all_branches = list_branches(current_dir)
+
+            # Create a table for the branches
+            table = Table(title="[bold blue]Branches[/bold blue]", border_style="blue")
+            table.add_column("Current", style="cyan", justify="center")
+            table.add_column("Branch", style="green")
+
+            # Check if there are any branches
+            if not all_branches:
+                logger.error("No branches found")
+                return
+
+            # Add the branches to the table
+            for branch in all_branches:
+                # Mark the current branch with an asterisk
+                is_current = branch == current
+                marker = "✓" if is_current else ""
+
+                # Add the branch to the table
+                table.add_row(
+                    marker, f"[bold]{branch}[/bold]" if is_current else branch
+                )
+
+            # Print the table
+            console.print(table)
+        elif delete:
+            # Delete the branch
+            delete_branch(current_dir, branch_name, force)
+        elif branch_name:
+            # Create the branch
+            create_branch(current_dir, branch_name, commit)
+        else:
+            # No operation specified and no branch name provided
+            logger.error("Branch name is required unless --list is specified")
 
     except Exception as e:
         # Log the error
-        logger.error(f"Error deleting branch: {str(e)}")
+        logger.error(f"Error managing branch: {str(e)}")

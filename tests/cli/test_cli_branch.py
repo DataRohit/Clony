@@ -1,8 +1,8 @@
 """
 Tests for the CLI branch management commands.
 
-This module contains tests for the Clony CLI branch management commands:
-branch, branches, and branch-delete.
+This module contains tests for the Clony CLI branch management command:
+branch (with various flags for creation, deletion, and listing).
 """
 
 # Standard imports
@@ -149,11 +149,11 @@ def test_branch_command_errors(temp_dir: pathlib.Path):
             assert result.exit_code == 0
 
 
-# Test for the branches command
+# Test for the branch command with list option
 @pytest.mark.cli
-def test_branches_command(temp_dir: pathlib.Path):
+def test_branch_command_list(temp_dir: pathlib.Path):
     """
-    Test the branches command functionality.
+    Test the branch command with list option.
 
     Args:
         temp_dir: Path to the temporary directory.
@@ -186,7 +186,7 @@ def test_branches_command(temp_dir: pathlib.Path):
 
         # List branches
         with patch("pathlib.Path.cwd", return_value=temp_dir):
-            result = runner.invoke(cli, ["branches"])
+            result = runner.invoke(cli, ["branch", "--list"])
             assert result.exit_code == 0
 
             # Check that all branches are listed
@@ -195,11 +195,11 @@ def test_branches_command(temp_dir: pathlib.Path):
             assert "branch2" in result.output
 
 
-# Test for the branches command with no branches
+# Test for the branch command with list option and no branches
 @pytest.mark.cli
-def test_branches_command_no_branches(temp_dir: pathlib.Path):
+def test_branch_command_list_no_branches(temp_dir: pathlib.Path):
     """
-    Test the branches command with no branches.
+    Test the branch command with list option when no branches exist.
 
     Args:
         temp_dir: Path to the temporary directory.
@@ -222,16 +222,16 @@ def test_branches_command_no_branches(temp_dir: pathlib.Path):
 
         # List branches
         with patch("pathlib.Path.cwd", return_value=temp_dir):
-            result = runner.invoke(cli, ["branches"])
+            result = runner.invoke(cli, ["branch", "--list"])
             assert result.exit_code == 0
             assert "No branches found" in result.output
 
 
-# Test for the branches command with an exception
+# Test for the branch command with list option and an exception
 @pytest.mark.cli
-def test_branches_command_exception():
+def test_branch_command_list_exception():
     """
-    Test the branches command when an exception occurs.
+    Test the branch command with list option when an exception occurs.
     """
 
     # Create a repository in the temporary directory
@@ -241,16 +241,31 @@ def test_branches_command_exception():
         with patch(
             "clony.core.refs.list_branches", side_effect=Exception("Test exception")
         ):
-            result = runner.invoke(cli, ["branches"])
+            result = runner.invoke(cli, ["branch", "--list"])
             assert result.exit_code == 0
             assert "Error" in result.output
 
 
-# Test for the branch-delete command
+# Test for branch command with no flags or branch name
 @pytest.mark.cli
-def test_branch_delete_command(temp_dir: pathlib.Path):
+def test_branch_command_no_args():
     """
-    Test the branch-delete command functionality.
+    Test the branch command when called without any arguments or flags.
+    """
+
+    # Create a repository in the temporary directory
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(cli, ["branch"])
+        assert result.exit_code == 0
+        assert "Branch name is required unless --list is specified" in result.output
+
+
+# Test for the branch command with delete option
+@pytest.mark.cli
+def test_branch_command_delete(temp_dir: pathlib.Path):
+    """
+    Test the branch command with delete option.
 
     Args:
         temp_dir: Path to the temporary directory.
@@ -279,18 +294,18 @@ def test_branch_delete_command(temp_dir: pathlib.Path):
 
         # Delete the branch
         with patch("pathlib.Path.cwd", return_value=temp_dir):
-            result = runner.invoke(cli, ["branch-delete", "branch-to-delete"])
+            result = runner.invoke(cli, ["branch", "branch-to-delete", "--delete"])
             assert result.exit_code == 0
 
         # Verify the branch was deleted
         assert not branch_path.exists()
 
 
-# Test for the branch-delete command with force option
+# Test for the branch command with delete and force options
 @pytest.mark.cli
-def test_branch_delete_command_force(temp_dir: pathlib.Path):
+def test_branch_command_delete_force(temp_dir: pathlib.Path):
     """
-    Test the branch-delete command with the force option.
+    Test the branch command with delete and force options.
 
     Args:
         temp_dir: Path to the temporary directory.
@@ -319,7 +334,7 @@ def test_branch_delete_command_force(temp_dir: pathlib.Path):
 
         # Try to delete the current branch without force
         with patch("pathlib.Path.cwd", return_value=temp_dir):
-            result = runner.invoke(cli, ["branch-delete", "main"])
+            result = runner.invoke(cli, ["branch", "main", "--delete"])
             assert result.exit_code == 0
 
         # Verify the branch still exists
@@ -327,18 +342,18 @@ def test_branch_delete_command_force(temp_dir: pathlib.Path):
 
         # Delete the current branch with force
         with patch("pathlib.Path.cwd", return_value=temp_dir):
-            result = runner.invoke(cli, ["branch-delete", "--force", "main"])
+            result = runner.invoke(cli, ["branch", "main", "--delete", "--force"])
             assert result.exit_code == 0
 
         # Verify the branch was deleted
         assert not main_branch_path.exists()
 
 
-# Test for the branch-delete command with errors
+# Test for the branch command with delete option and errors
 @pytest.mark.cli
-def test_branch_delete_command_errors(temp_dir: pathlib.Path):
+def test_branch_command_delete_errors(temp_dir: pathlib.Path):
     """
-    Test the branch-delete command with various error conditions.
+    Test the branch command with delete option and various error conditions.
 
     Args:
         temp_dir: Path to the temporary directory.
@@ -353,15 +368,15 @@ def test_branch_delete_command_errors(temp_dir: pathlib.Path):
 
         # Try to delete a non-existent branch
         with patch("pathlib.Path.cwd", return_value=temp_dir):
-            result = runner.invoke(cli, ["branch-delete", "non-existent-branch"])
+            result = runner.invoke(cli, ["branch", "non-existent-branch", "--delete"])
             assert result.exit_code == 0
 
 
-# Test for the branch-delete command with an exception
+# Test for the branch command with delete option and exception
 @pytest.mark.cli
-def test_branch_delete_command_exception():
+def test_branch_command_delete_exception():
     """
-    Test the branch-delete command when an exception occurs.
+    Test the branch command with delete option when an exception occurs.
     """
 
     # Create a repository in the temporary directory
@@ -371,7 +386,7 @@ def test_branch_delete_command_exception():
         with patch(
             "clony.core.refs.delete_branch", side_effect=Exception("Test exception")
         ):
-            result = runner.invoke(cli, ["branch-delete", "test-branch"])
+            result = runner.invoke(cli, ["branch", "test-branch", "--delete"])
             assert result.exit_code == 0
             assert "Error" in result.output
 
