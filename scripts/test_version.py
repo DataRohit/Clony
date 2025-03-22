@@ -59,10 +59,10 @@ def main():
 
     except subprocess.CalledProcessError:
         # Handle case when no git tag is available
-        print("No git tag found, using fallback version 0.1.11")
+        print("No git tag found, using fallback version 0.1.12")
 
         # Default to fallback version if no tag is available
-        version = "0.1.11"
+        version = "0.1.12"
 
     # Configure path to the clony package and version file
     version_dir = Path("clony")
