@@ -56,6 +56,7 @@
     - [diff](#diff)
     - [reset](#reset)
     - [branch](#branch)
+    - [checkout](#checkout)
 - [Development](#-development)
   - [Architecture Overview](#architecture-overview)
   - [Development Environment Setup](#development-environment-setup)
@@ -763,6 +764,104 @@ $ clony branch --list
 │    ✓    │ main           │
 └─────────┴────────────────┘
 ```
+
+#### `checkout`
+
+Checkout a branch, commit, or restore files. This command has two main functionalities:
+
+1. **Branch/Commit Checkout**: Updates the HEAD, index, and working directory to match the state of the specified branch or commit.
+2. **File Restoration**: Restores specific files from a branch or commit without changing the current branch.
+
+```bash
+# Basic Usage
+clony checkout <target>  # Checkout a branch or commit
+clony checkout <target> <file_paths>...  # Restore specific files from a branch or commit
+
+# Options
+--force, -f           # Force checkout even if there are uncommitted changes
+--help, -h            # Show help for checkout command
+```
+
+**Examples:**
+
+```bash
+# Checkout a branch
+$ clony checkout feature-branch
+Checking out feature-branch
+                    Checkout Results                    
+┏━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┓
+┃ Target         ┃ Type   ┃ HEAD State ┃ Files Updated ┃
+┡━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━┩
+│ feature-branch │ Branch │ Attached   │ 3             │
+└────────────────┴────────┴────────────┴───────────────┘
+
+# Checkout a commit (detached HEAD)
+$ clony checkout d2c4431
+Checking out d2c4431
+                Checkout Results                 
+┏━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┓
+┃ Target  ┃ Type   ┃ HEAD State ┃ Files Updated ┃
+┡━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━┩
+│ d2c4431 │ Commit │ Detached   │ 3             │
+└─────────┴────────┴────────────┴───────────────┘
+
+# Checkout will fail if there are uncommitted changes
+$ clony checkout main
+Checking out main
+                Checkout Conflicts                
+┏━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ File      ┃ Status   ┃ Action Required         ┃
+┡━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ file1.txt │ Modified │ Commit or stash changes │
+└───────────┴──────────┴─────────────────────────┘
+Checkout failed.
+
+# Force checkout to overwrite uncommitted changes
+$ clony checkout main --force
+Checking out main
+                Checkout Results                
+┏━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┓
+┃ Target ┃ Type   ┃ HEAD State ┃ Files Updated ┃
+┡━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━┩
+│ main   │ Branch │ Attached   │ 3             │
+└────────┴────────┴────────────┴───────────────┘
+
+# Restore a specific file from a commit
+$ clony checkout 9efa21c file1.txt
+Restoring file 'file1.txt' from 9efa21c
+Restored 1 file(s) from 9efa21c
+
+# Restore will fail if there are local modifications
+$ clony checkout 9efa21c file1.txt
+Restoring file 'file1.txt' from 9efa21c
+                Checkout Conflicts                
+┏━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ File      ┃ Status   ┃ Action Required         ┃
+┡━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ file1.txt │ Modified │ Commit or stash changes │
+└───────────┴──────────┴─────────────────────────┘
+Failed to restore files.
+
+# Force restore to overwrite local modifications
+$ clony checkout 9efa21c file1.txt --force
+Restoring file 'file1.txt' from 9efa21c
+Restored 1 file(s) from 9efa21c
+```
+
+The checkout command performs several key operations:
+1. For branch/commit checkout:
+   - Updates HEAD to point to the branch or commit
+   - Updates the index (staging area) to match the tree
+   - Updates the working directory files
+   - Provides a warning when entering a detached HEAD state
+
+2. For file restoration:
+   - Extracts the specified files from the target commit/branch
+   - Updates only those files in the working directory
+   - Preserves the current branch and HEAD state
+   - Detects conflicts with local modifications
+
+The `--force` flag overrides conflict detection and allows the command to proceed even when uncommitted changes would be lost. Use this option with caution as it can lead to data loss.
 
 ## 💻 Development
 

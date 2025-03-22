@@ -27,6 +27,7 @@ from clony.core.refs import (
     list_branches,
 )
 from clony.core.repository import Repository
+from clony.internals.checkout import restore_files, switch_branch_or_commit
 from clony.internals.commit import make_commit
 from clony.internals.log import display_commit_logs, parse_commit_object
 from clony.internals.reset import reset_head, validate_commit_reference
@@ -617,3 +618,50 @@ def branch(branch_name: str, commit: str, delete: bool, force: bool, list: bool)
     except Exception as e:
         # Log the error
         logger.error(f"Error managing branch: {str(e)}")
+
+
+# Checkout command to update the repository state
+@cli.command()
+@click.argument("target", required=True)
+@click.argument("paths", nargs=-1, type=click.Path())
+@click.option(
+    "--force",
+    "-f",
+    is_flag=True,
+    help="Force checkout even if there are uncommitted changes that would "
+    "be overwritten.",
+)
+def checkout(target: str, paths: tuple, force: bool):
+    """Checkout a branch, commit, or restore files.
+
+    This command updates the repository state to match a target branch or commit,
+    or restores specific files from a target branch or commit.
+    """
+
+    # Determine if we're doing a file restore or branch/commit checkout
+    if paths:
+        # We're restoring specific files
+        paths_list = list(paths)
+
+        # Display what we're doing
+        if len(paths_list) == 1:
+            console.print(
+                f"[yellow]Restoring file '{paths_list[0]}' from {target}[/yellow]"
+            )
+        else:
+            console.print(
+                f"[yellow]Restoring {len(paths_list)} files from {target}[/yellow]"
+            )
+
+        # Restore the files
+        if not restore_files(paths_list, target, force=force):
+            console.print("[red]Failed to restore files.[/red]")
+            sys.exit(1)
+    else:
+        # We're checking out a branch or commit
+        console.print(f"[yellow]Checking out {target}[/yellow]")
+
+        # Switch to the target branch or commit
+        if not switch_branch_or_commit(target, force):
+            console.print("[red]Checkout failed.[/red]")
+            sys.exit(1)
