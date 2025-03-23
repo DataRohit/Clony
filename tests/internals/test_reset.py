@@ -199,9 +199,105 @@ def test_update_working_dir_to_commit(repo_with_commits):
     # Get the repository path and commit hashes
     repo_path = repo_with_commits["repo_path"]
     first_commit = repo_with_commits["first_commit"]
+    third_commit = repo_with_commits["third_commit"]
 
-    # Test updating the working directory
-    assert update_working_dir_to_commit(repo_path, first_commit) is True
+    # Change to the repository directory
+    original_dir = os.getcwd()
+    os.chdir(repo_path)
+
+    try:
+        # Modify a file but don't commit it (to check it gets overwritten)
+        with open("file1.txt", "w") as f:
+            f.write("Uncommitted changes")
+
+        # Create a directory that shouldn't exist in the first commit
+        test_dir = Path("test_dir")
+        test_dir.mkdir(exist_ok=True)
+        with open(test_dir / "test_file.txt", "w") as f:
+            f.write("This file should be removed")
+
+        # Update working directory to first commit state
+        assert update_working_dir_to_commit(repo_path, first_commit) is True
+
+        # Verify content is from first commit
+        with open("file1.txt", "r") as f:
+            content = f.read()
+        assert content == "Initial content"
+
+        # Verify file2.txt doesn't exist (it was added in the third commit)
+        assert not Path("file2.txt").exists()
+
+        # Verify the test directory is removed
+        assert not test_dir.exists()
+
+        # Now update to the third commit
+        assert update_working_dir_to_commit(repo_path, third_commit) is True
+
+        # Verify file1.txt has the modified content
+        with open("file1.txt", "r") as f:
+            content = f.read()
+        assert content == "Modified content"
+
+        # Verify file2.txt exists and has correct content
+        assert Path("file2.txt").exists()
+        with open("file2.txt", "r") as f:
+            content = f.read()
+        assert content == "New file content"
+
+        # Test with an invalid commit hash
+        with patch("clony.internals.checkout.get_commit_tree_hash", return_value=None):
+            assert update_working_dir_to_commit(repo_path, "invalid-hash") is False
+
+        # Test with a failure in update_working_dir_to_tree
+        with patch(
+            "clony.internals.checkout.update_working_dir_to_tree", return_value=False
+        ):
+            assert update_working_dir_to_commit(repo_path, third_commit) is False
+
+        # Test with an exception when removing a file
+        with patch(
+            "pathlib.Path.unlink", side_effect=PermissionError("Permission denied")
+        ):
+            # Should still succeed, as it logs the warning but doesn't fail
+            assert update_working_dir_to_commit(repo_path, first_commit) is True
+
+        # Test with an exception when removing a directory
+        with patch("shutil.rmtree", side_effect=PermissionError("Permission denied")):
+            # Make a test directory to try to remove
+            test_dir.mkdir(exist_ok=True)
+            # Should still succeed, as it logs the warning but doesn't fail
+            assert update_working_dir_to_commit(repo_path, first_commit) is True
+
+        # Test with an unexpected exception in the main function
+        with patch(
+            "clony.internals.checkout.get_files_from_tree",
+            side_effect=Exception("Test error"),
+        ):
+            assert update_working_dir_to_commit(repo_path, first_commit) is False
+
+        # Simple test case that covers the directory checks
+        with patch.object(Path, "exists", return_value=True):
+            with patch.object(Path, "iterdir", return_value=[]):
+                with patch(
+                    "clony.internals.checkout.get_commit_tree_hash",
+                    return_value="dummy_tree_hash",
+                ):
+                    with patch(
+                        "clony.internals.checkout.get_files_from_tree", return_value={}
+                    ):
+                        with patch(
+                            "clony.internals.checkout.update_working_dir_to_tree",
+                            return_value=True,
+                        ):
+                            # All operations should succeed with simple mocks
+                            assert (
+                                update_working_dir_to_commit(repo_path, "dummy_commit")
+                                is True
+                            )
+
+    finally:
+        # Change back to the original directory
+        os.chdir(original_dir)
 
 
 # Test reset_head function directly
