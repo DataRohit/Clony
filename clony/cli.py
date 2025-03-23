@@ -627,23 +627,19 @@ def checkout(target: str, paths: tuple, force: bool):
 
         # Display what we're doing
         if len(paths_list) == 1:
-            console.print(
-                f"[yellow]Restoring file '{paths_list[0]}' from {target}[/yellow]"
-            )
+            logger.error(f"Restoring file '{paths_list[0]}' from {target}")
         else:
-            console.print(
-                f"[yellow]Restoring {len(paths_list)} files from {target}[/yellow]"
-            )
+            logger.error(f"Restoring {len(paths_list)} files from {target}")
 
         # Restore the files
         if not restore_files(paths_list, target, force=force):
-            console.print("[red]Failed to restore files.[/red]")
+            logger.error("Failed to restore files.")
             sys.exit(1)
     else:
         # We're checking out a branch or commit
-        console.print(f"[yellow]Checking out {target}[/yellow]")
+        logger.error(f"Checking out {target}")
 
         # Switch to the target branch or commit
         if not switch_branch_or_commit(target, force):
-            console.print("[red]Checkout failed.[/red]")
+            logger.error("Checkout failed.")
             sys.exit(1)

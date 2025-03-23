@@ -571,7 +571,7 @@ def restore_files(
         return False
 
     # Display success message
-    console.print(f"[green]Restored {len(paths)} file(s) from {source_ref}[/green]")
+    logger.error(f"Restored {len(paths)} file(s) from {source_ref}")
 
     # Log the success
     return True
