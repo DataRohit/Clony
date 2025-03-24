@@ -30,6 +30,7 @@ from clony.core.repository import Repository
 from clony.internals.checkout import restore_files, switch_branch_or_commit
 from clony.internals.commit import make_commit
 from clony.internals.log import display_commit_logs, parse_commit_object
+from clony.internals.merge import perform_merge
 from clony.internals.reset import reset_head, validate_commit_reference
 from clony.internals.staging import stage_file
 from clony.internals.status import get_status
@@ -643,3 +644,53 @@ def checkout(target: str, paths: tuple, force: bool):
         if not switch_branch_or_commit(target, force):
             logger.error("Checkout failed.")
             sys.exit(1)
+
+
+# Merge command to perform a three-way merge with the current branch
+@cli.command()
+@click.argument("base", required=True)
+@click.argument("other", required=True)
+def merge(base: str, other: str):
+    """Perform a three-way merge with the current branch.
+
+    Merge changes from BRANCH or COMMIT into the current branch, with BASE
+    as the common ancestor. Conflicts will be displayed in a tabular format
+    for manual resolution.
+    """
+
+    try:
+        # Validate the commits
+        if not validate_commit_reference(base):
+            # Log the error and exit
+            logger.error(f"Invalid base commit: {base}")
+            sys.exit(1)
+
+        if not validate_commit_reference(other):
+            # Log the error and exit
+            logger.error(f"Invalid other commit: {other}")
+            sys.exit(1)
+
+        # Perform the merge
+        conflicts = perform_merge(base, other)
+
+        # Exit with a status code indicating if there were conflicts
+        if conflicts > 0:
+            # Log the warning
+            logger.warning(
+                f"Merge completed with {conflicts} conflict(s). "
+                f"Manual resolution required."
+            )
+
+            # Exit with a status code of 1
+            sys.exit(1)
+        else:
+            # Log the info
+            logger.info("Merge completed successfully with no conflicts.")
+
+            # Exit with a status code of 0
+            sys.exit(0)
+
+    except Exception as e:
+        # Log the error and exit
+        logger.error(f"Error performing merge: {str(e)}")
+        sys.exit(1)

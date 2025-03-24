@@ -57,6 +57,7 @@
     - [reset](#reset)
     - [branch](#branch)
     - [checkout](#checkout)
+    - [merge](#merge)
 - [Development](#-development)
   - [Architecture Overview](#architecture-overview)
   - [Development Environment Setup](#development-environment-setup)
@@ -862,6 +863,70 @@ The checkout command performs several key operations:
    - Detects conflicts with local modifications
 
 The `--force` flag overrides conflict detection and allows the command to proceed even when uncommitted changes would be lost. Use this option with caution as it can lead to data loss.
+
+#### `merge`
+
+Perform a three-way merge with the current branch. This command merges changes from a specified commit into the current branch, using an explicitly provided base commit as the common ancestor.
+
+Unlike standard Git which automatically finds the common ancestor, Clony requires you to manually specify both the base commit and the commit to be merged.
+
+```bash
+# Basic Usage
+clony merge <base> <other>  # Merge changes from OTHER into current branch, with BASE as common ancestor
+
+# Options
+--help, -h          # Show help for merge command
+```
+
+**Examples:**
+
+```bash
+# Merge a feature branch into the current branch
+$ clony merge 9dccc5d fc16929
+[03/24/25 16:38:12] INFO     Merge completed successfully with no conflicts.
+
+# Merge with conflicts
+$ clony merge base_commit feature_branch
+[03/24/25 16:39:15] WARNING  Merge completed with 2 conflict(s). Manual resolution required.
+            Merge Results            
+┏━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━┓
+┃ File      ┃ Status   ┃ Conflicts  ┃
+┡━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━┩
+│ test1.txt │ Conflicts│ 1          │
+│ test2.txt │ Conflicts│ 1          │
+└───────────┴──────────┴────────────┘
+
+Conflicts were found during the merge:
+
+File: test1.txt
+┏━━━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Line ┃ This Branch   ┃ Other Branch         ┃
+┡━━━━━━╇━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━┩
+│ 3    │ This line     │ Different line       │
+└──────┴───────────────┴──────────────────────┘
+
+# Try to merge with invalid base commit
+$ clony merge invalid_base feature_branch
+[03/24/25 16:40:30] ERROR    Invalid base commit: invalid_base
+
+# Try to merge with invalid other commit
+$ clony merge base_commit invalid_other
+[03/24/25 16:40:45] ERROR    Invalid other commit: invalid_other
+
+# Try to merge outside a git repository
+$ clony merge base_commit other_commit
+[03/24/25 16:41:00] ERROR    Not a git repository. Run 'clony init' to create one.
+```
+
+The merge command performs several key operations:
+1. Validates both the base and other commit references
+2. Identifies the current branch's HEAD commit
+3. Performs a three-way merge between base, HEAD, and other commits
+4. Detects conflicts when the same lines are modified differently
+5. Displays merge results in a clean, formatted table
+6. Shows detailed conflict information when conflicts are found
+
+The key difference from standard Git is that Clony requires you to explicitly specify the base commit (common ancestor), while Git automatically computes this. This gives you more control but requires more knowledge of your repository's commit history.
 
 ## 💻 Development
 
