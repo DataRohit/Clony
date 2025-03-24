@@ -274,11 +274,6 @@ def stage(path: str):
 
     This command prepares a file to be included in the next commit by
     creating a blob object from the file content and updating the index.
-
-    The staging results are displayed in a formatted table showing the file path,
-    status (STAGED or UNCHANGED), and a short hash of the content.
-
-    The file path is required, while the file must exist before proceeding.
     """
     try:
         # Check if file exists before proceeding
@@ -306,9 +301,6 @@ def commit(message: str, author_name: str, author_email: str):
     This command creates a new commit object with the staged changes,
     including a tree object representing the directory structure and
     a reference to the parent commit.
-
-    The commit message is required, while author name and email are optional
-    and will default to "Clony User" and "user@example.com" if not provided.
     """
 
     try:
@@ -335,9 +327,6 @@ def status(path: str):
     This command displays the state of the working directory and the staging area
     in a formatted tabular output. It shows which changes have been staged,
     which haven't, and which files aren't being tracked by Git.
-
-    The status is displayed in separate tables for staged changes, unstaged changes,
-    and untracked files, with color-coded statuses for better readability.
     """
 
     try:
@@ -462,9 +451,6 @@ def blobs(commit: str):
     This command retrieves and displays all blob hashes associated with files
     in the specified commit's tree. The commit can be specified using its hash,
     a branch name, or a tag.
-
-    The output includes the blob hash and the associated file path for each blob
-    in the commit's tree structure.
     """
 
     # Get the repository path
@@ -564,10 +550,6 @@ def branch(branch_name: str, commit: str, delete: bool, force: bool, list: bool)
 
     This command can create, delete, or list branches. By default, it creates a branch
     pointing to the current HEAD or a specified commit.
-
-    Use --delete (-d) to delete a branch instead of creating one.
-    Use --force (-f) to force operations like deleting the current branch.
-    Use --list (-l) to list all branches in the repository.
     """
 
     try:
@@ -645,23 +627,19 @@ def checkout(target: str, paths: tuple, force: bool):
 
         # Display what we're doing
         if len(paths_list) == 1:
-            console.print(
-                f"[yellow]Restoring file '{paths_list[0]}' from {target}[/yellow]"
-            )
+            logger.error(f"Restoring file '{paths_list[0]}' from {target}")
         else:
-            console.print(
-                f"[yellow]Restoring {len(paths_list)} files from {target}[/yellow]"
-            )
+            logger.error(f"Restoring {len(paths_list)} files from {target}")
 
         # Restore the files
         if not restore_files(paths_list, target, force=force):
-            console.print("[red]Failed to restore files.[/red]")
+            logger.error("Failed to restore files.")
             sys.exit(1)
     else:
         # We're checking out a branch or commit
-        console.print(f"[yellow]Checking out {target}[/yellow]")
+        logger.error(f"Checking out {target}")
 
         # Switch to the target branch or commit
         if not switch_branch_or_commit(target, force):
-            console.print("[red]Checkout failed.[/red]")
+            logger.error("Checkout failed.")
             sys.exit(1)

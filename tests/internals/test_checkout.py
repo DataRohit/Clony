@@ -3,8 +3,14 @@ Tests for the checkout module functionality.
 """
 
 # Standard library imports
-from pathlib import Path
+import pathlib
+import shutil
+import tempfile
+from typing import Generator
 from unittest.mock import patch
+
+# Third-party imports
+import pytest
 
 # Local imports
 from clony.internals.checkout import (
@@ -22,19 +28,42 @@ from clony.internals.checkout import (
 from clony.internals.status import FileStatus
 
 
+# Test fixture for creating a temporary directory
+@pytest.fixture
+def temp_dir() -> Generator[pathlib.Path, None, None]:
+    """
+    Create a temporary directory for testing.
+
+    Yields:
+        pathlib.Path: Path to the temporary directory.
+    """
+
+    # Create a temporary directory
+    temp_path = pathlib.Path(tempfile.mkdtemp())
+
+    # Yield the temporary directory path
+    yield temp_path
+
+    # Clean up the temporary directory
+    shutil.rmtree(temp_path)
+
+
 # Test the detect_conflicts function
 @patch("clony.internals.checkout.get_repository_status")
 @patch("clony.internals.checkout.get_commit_tree_hash")
 @patch("clony.internals.checkout.get_files_from_tree")
 def test_detect_conflicts(
-    mock_get_files_from_tree, mock_get_commit_tree_hash, mock_get_repository_status
+    mock_get_files_from_tree,
+    mock_get_commit_tree_hash,
+    mock_get_repository_status,
+    temp_dir: pathlib.Path,
 ):
     """
     Test that detect_conflicts correctly identifies conflicts.
     """
 
     # Setup mocks
-    repo_path = Path("/fake/repo")
+    repo_path = temp_dir
     target_commit = "abcdef1234567890"
 
     # Mock status with modified and deleted files
@@ -64,13 +93,16 @@ def test_detect_conflicts(
 
 # Test the get_commit_tree_hash function
 @patch("clony.internals.checkout.read_git_object")
-def test_get_commit_tree_hash(mock_read_git_object):
+def test_get_commit_tree_hash(
+    mock_read_git_object,
+    temp_dir: pathlib.Path,
+):
     """
     Test that get_commit_tree_hash correctly extracts the tree hash.
     """
 
     # Setup mock
-    repo_path = Path("/fake/repo")
+    repo_path = temp_dir
     commit_hash = "abcdef1234567890"
     tree_hash = "tree1234567890abcdef"
 
@@ -94,13 +126,17 @@ def test_get_commit_tree_hash(mock_read_git_object):
 # Test the get_files_from_tree function
 @patch("clony.internals.checkout.read_git_object")
 @patch("clony.internals.checkout.parse_tree_object")
-def test_get_files_from_tree(mock_parse_tree_object, mock_read_git_object):
+def test_get_files_from_tree(
+    mock_parse_tree_object,
+    mock_read_git_object,
+    temp_dir: pathlib.Path,
+):
     """
     Test that get_files_from_tree correctly builds a file mapping.
     """
 
     # Setup mocks
-    repo_path = Path("/fake/repo")
+    repo_path = temp_dir
     tree_hash = "tree1234"
 
     # Mock parse_tree_object to return tree entries
@@ -143,13 +179,16 @@ def test_get_files_from_tree(mock_parse_tree_object, mock_read_git_object):
 
 # Test the extract_blob_to_working_dir function
 @patch("clony.internals.checkout.read_git_object")
-def test_extract_blob_to_working_dir(mock_read_git_object, tmp_path):
+def test_extract_blob_to_working_dir(
+    mock_read_git_object,
+    temp_dir: pathlib.Path,
+):
     """
     Test that extract_blob_to_working_dir writes the blob content to a file.
     """
 
     # Setup mocks
-    repo_path = tmp_path
+    repo_path = temp_dir
     blob_hash = "blob123"
     file_path = "test_file.txt"
     blob_content = b"Test content for blob"
@@ -172,14 +211,16 @@ def test_extract_blob_to_working_dir(mock_read_git_object, tmp_path):
 @patch("clony.internals.checkout.get_files_from_tree")
 @patch("clony.internals.checkout.extract_blob_to_working_dir")
 def test_update_working_dir_to_tree(
-    mock_extract_blob_to_working_dir, mock_get_files_from_tree
+    mock_extract_blob_to_working_dir,
+    mock_get_files_from_tree,
+    temp_dir: pathlib.Path,
 ):
     """
     Test that update_working_dir_to_tree updates all files from a tree.
     """
 
     # Setup mocks
-    repo_path = Path("/fake/repo")
+    repo_path = temp_dir
     tree_hash = "tree123"
 
     # Mock get_files_from_tree to return file mapping
@@ -218,14 +259,14 @@ def test_switch_branch(
     mock_detect_conflicts,
     mock_get_ref_hash,
     mock_find_git_repo_path,
-    tmp_path,
+    temp_dir: pathlib.Path,
 ):
     """
     Test that switch_branch_or_commit switches to a branch correctly.
     """
 
     # Setup mocks
-    repo_path = tmp_path
+    repo_path = temp_dir
     mock_find_git_repo_path.return_value = repo_path
 
     # Create .git directory and HEAD file
@@ -279,13 +320,14 @@ def test_restore_files(
     mock_detect_conflicts,
     mock_get_head_commit,
     mock_find_git_repo_path,
+    temp_dir: pathlib.Path,
 ):
     """
     Test that restore_files restores files from HEAD.
     """
 
     # Setup mocks
-    repo_path = Path("/fake/repo")
+    repo_path = temp_dir
     mock_find_git_repo_path.return_value = repo_path
 
     # Mock HEAD commit
@@ -314,13 +356,16 @@ def test_restore_files(
 
 # Test error handling in get_commit_tree_hash
 @patch("clony.internals.checkout.read_git_object")
-def test_get_commit_tree_hash_errors(mock_read_git_object):
+def test_get_commit_tree_hash_errors(
+    mock_read_git_object,
+    temp_dir: pathlib.Path,
+):
     """
     Test that get_commit_tree_hash handles errors properly.
     """
 
     # Setup mocks
-    repo_path = Path("/fake/repo")
+    repo_path = temp_dir
     commit_hash = "abcdef1234567890"
 
     # Test case 1: Not a commit object
@@ -356,13 +401,16 @@ def test_get_commit_tree_hash_errors(mock_read_git_object):
 
 # Test error handling in get_files_from_tree
 @patch("clony.internals.checkout.read_git_object")
-def test_get_files_from_tree_errors(mock_read_git_object):
+def test_get_files_from_tree_errors(
+    mock_read_git_object,
+    temp_dir: pathlib.Path,
+):
     """
     Test that get_files_from_tree handles errors properly.
     """
 
     # Setup mocks
-    repo_path = Path("/fake/repo")
+    repo_path = temp_dir
     tree_hash = "tree1234"
 
     # Test case 1: Not a tree object
@@ -386,13 +434,16 @@ def test_get_files_from_tree_errors(mock_read_git_object):
 
 # Test error handling in extract_blob_to_working_dir
 @patch("clony.internals.checkout.read_git_object")
-def test_extract_blob_to_working_dir_errors(mock_read_git_object):
+def test_extract_blob_to_working_dir_errors(
+    mock_read_git_object,
+    temp_dir: pathlib.Path,
+):
     """
     Test that extract_blob_to_working_dir handles errors properly.
     """
 
     # Setup mocks
-    repo_path = Path("/fake/repo")
+    repo_path = temp_dir
     blob_hash = "blob123"
     file_path = "test_file.txt"
 
@@ -421,14 +472,16 @@ def test_extract_blob_to_working_dir_errors(mock_read_git_object):
 @patch("clony.internals.checkout.get_files_from_tree")
 @patch("clony.internals.checkout.extract_blob_to_working_dir")
 def test_update_working_dir_to_tree_errors(
-    mock_extract_blob_to_working_dir, mock_get_files_from_tree
+    mock_extract_blob_to_working_dir,
+    mock_get_files_from_tree,
+    temp_dir: pathlib.Path,
 ):
     """
     Test that update_working_dir_to_tree handles errors properly.
     """
 
     # Setup mocks
-    repo_path = Path("/fake/repo")
+    repo_path = temp_dir
     tree_hash = "tree123"
 
     # Test case 1: Exception during get_files_from_tree
@@ -479,7 +532,10 @@ def test_update_working_dir_to_tree_errors(
 
 # Test restore_files failures
 @patch("clony.internals.checkout.find_git_repo_path")
-def test_restore_files_no_repo(mock_find_git_repo_path):
+def test_restore_files_no_repo(
+    mock_find_git_repo_path,
+    temp_dir: pathlib.Path,
+):
     """
     Test that restore_files handles missing repository.
     """
@@ -497,13 +553,17 @@ def test_restore_files_no_repo(mock_find_git_repo_path):
 # Test restore_files with HEAD commit failure
 @patch("clony.internals.checkout.find_git_repo_path")
 @patch("clony.internals.checkout.get_head_commit")
-def test_restore_files_no_head(mock_get_head_commit, mock_find_git_repo_path):
+def test_restore_files_no_head(
+    mock_get_head_commit,
+    mock_find_git_repo_path,
+    temp_dir: pathlib.Path,
+):
     """
     Test that restore_files handles missing HEAD commit.
     """
 
     # Setup mocks
-    repo_path = Path("/fake/repo")
+    repo_path = temp_dir
     mock_find_git_repo_path.return_value = repo_path
 
     # Mock no HEAD commit
@@ -526,13 +586,14 @@ def test_restore_files_branch(
     mock_detect_conflicts,
     mock_get_ref_hash,
     mock_find_git_repo_path,
+    temp_dir: pathlib.Path,
 ):
     """
     Test that restore_files works with a branch reference.
     """
 
     # Setup mocks
-    repo_path = Path("/fake/repo")
+    repo_path = temp_dir
     mock_find_git_repo_path.return_value = repo_path
 
     # Mock branch reference
@@ -565,14 +626,17 @@ def test_restore_files_branch(
 @patch("clony.internals.checkout.get_ref_hash")
 @patch("clony.internals.checkout.validate_commit_reference")
 def test_restore_files_invalid_ref(
-    mock_validate_commit_reference, mock_get_ref_hash, mock_find_git_repo_path
+    mock_validate_commit_reference,
+    mock_get_ref_hash,
+    mock_find_git_repo_path,
+    temp_dir: pathlib.Path,
 ):
     """
     Test that restore_files handles invalid references.
     """
 
     # Setup mocks
-    repo_path = Path("/fake/repo")
+    repo_path = temp_dir
     mock_find_git_repo_path.return_value = repo_path
 
     # Mock invalid branch and commit reference
@@ -596,13 +660,14 @@ def test_restore_files_conflicts(
     mock_detect_conflicts,
     mock_get_head_commit,
     mock_find_git_repo_path,
+    temp_dir: pathlib.Path,
 ):
     """
     Test that restore_files handles conflicts.
     """
 
     # Setup mocks
-    repo_path = Path("/fake/repo")
+    repo_path = temp_dir
     mock_find_git_repo_path.return_value = repo_path
 
     # Mock HEAD commit
@@ -633,13 +698,14 @@ def test_restore_files_restore_failure(
     mock_detect_conflicts,
     mock_get_head_commit,
     mock_find_git_repo_path,
+    temp_dir: pathlib.Path,
 ):
     """
     Test that restore_files handles restoration failure.
     """
 
     # Setup mocks
-    repo_path = Path("/fake/repo")
+    repo_path = temp_dir
     mock_find_git_repo_path.return_value = repo_path
 
     # Mock HEAD commit
@@ -663,14 +729,16 @@ def test_restore_files_restore_failure(
 @patch("clony.internals.checkout.get_commit_tree_hash")
 @patch("clony.internals.checkout.update_working_dir_to_tree")
 def test_restore_specific_files(
-    mock_update_working_dir_to_tree, mock_get_commit_tree_hash
+    mock_update_working_dir_to_tree,
+    mock_get_commit_tree_hash,
+    temp_dir: pathlib.Path,
 ):
     """
     Test that restore_specific_files correctly restores files from a commit.
     """
 
     # Setup mocks
-    repo_path = Path("/fake/repo")
+    repo_path = temp_dir
     commit_hash = "abcdef1234567890"
     file_paths = ["file1.txt", "file2.txt"]
 
@@ -709,7 +777,10 @@ def test_restore_specific_files(
 
 # Test switch_branch_or_commit failures
 @patch("clony.internals.checkout.find_git_repo_path")
-def test_switch_branch_or_commit_no_repo(mock_find_git_repo_path):
+def test_switch_branch_or_commit_no_repo(
+    mock_find_git_repo_path,
+    temp_dir: pathlib.Path,
+):
     """
     Test that switch_branch_or_commit handles missing repository.
     """
@@ -729,14 +800,17 @@ def test_switch_branch_or_commit_no_repo(mock_find_git_repo_path):
 @patch("clony.internals.checkout.get_ref_hash")
 @patch("clony.internals.checkout.validate_commit_reference")
 def test_switch_branch_or_commit_invalid_ref(
-    mock_validate_commit_reference, mock_get_ref_hash, mock_find_git_repo_path
+    mock_validate_commit_reference,
+    mock_get_ref_hash,
+    mock_find_git_repo_path,
+    temp_dir: pathlib.Path,
 ):
     """
     Test that switch_branch_or_commit handles invalid references.
     """
 
     # Setup mocks
-    repo_path = Path("/fake/repo")
+    repo_path = temp_dir
     mock_find_git_repo_path.return_value = repo_path
 
     # Mock invalid branch and commit reference
@@ -762,13 +836,14 @@ def test_switch_branch_or_commit_conflicts(
     mock_validate_commit_reference,
     mock_get_ref_hash,
     mock_find_git_repo_path,
+    temp_dir: pathlib.Path,
 ):
     """
     Test that switch_branch_or_commit handles conflicts.
     """
 
     # Setup mocks
-    repo_path = Path("/fake/repo")
+    repo_path = temp_dir
     mock_find_git_repo_path.return_value = repo_path
 
     # Mock commit reference
@@ -822,13 +897,14 @@ def test_switch_branch_or_commit_detached(
     mock_validate_commit_reference,
     mock_get_ref_hash,
     mock_find_git_repo_path,
+    temp_dir: pathlib.Path,
 ):
     """
     Test that switch_branch_or_commit switches to a commit correctly.
     """
 
     # Setup mocks
-    repo_path = Path("/fake/repo")
+    repo_path = temp_dir
     mock_find_git_repo_path.return_value = repo_path
 
     # Mock commit reference
@@ -906,7 +982,10 @@ def test_switch_branch_or_commit_detached(
 
 # Test display_checkout_info
 @patch("clony.internals.checkout.console.print")
-def test_display_checkout_info(mock_print):
+def test_display_checkout_info(
+    mock_print,
+    temp_dir: pathlib.Path,
+):
     """
     Test that display_checkout_info formats output correctly.
     """
@@ -927,7 +1006,10 @@ def test_display_checkout_info(mock_print):
 
 # Test display_conflicts
 @patch("clony.internals.checkout.console.print")
-def test_display_conflicts(mock_print):
+def test_display_conflicts(
+    mock_print,
+    temp_dir: pathlib.Path,
+):
     """
     Test that display_conflicts formats output correctly.
     """
@@ -947,14 +1029,17 @@ def test_display_conflicts(mock_print):
 @patch("clony.internals.checkout.get_commit_tree_hash")
 @patch("clony.internals.checkout.get_files_from_tree")
 def test_detect_conflicts_with_specific_files(
-    mock_get_files_from_tree, mock_get_commit_tree_hash, mock_get_repository_status
+    mock_get_files_from_tree,
+    mock_get_commit_tree_hash,
+    mock_get_repository_status,
+    temp_dir: pathlib.Path,
 ):
     """
     Test that detect_conflicts correctly filters specific files.
     """
 
     # Setup mocks
-    repo_path = Path("/fake/repo")
+    repo_path = temp_dir
     commit_hash = "commit123"
 
     # Mock status
@@ -992,13 +1077,16 @@ def test_detect_conflicts_with_specific_files(
 
 # Test get_commit_tree_hash with no tree line in commit
 @patch("clony.internals.checkout.read_git_object")
-def test_get_commit_tree_hash_no_tree_line(mock_read_git_object):
+def test_get_commit_tree_hash_no_tree_line(
+    mock_read_git_object,
+    temp_dir: pathlib.Path,
+):
     """
     Test that get_commit_tree_hash handles commit without tree line.
     """
 
     # Setup mock
-    repo_path = Path("/fake/repo")
+    repo_path = temp_dir
     commit_hash = "commit123"
 
     # Mock commit content without tree line
@@ -1018,14 +1106,16 @@ def test_get_commit_tree_hash_no_tree_line(mock_read_git_object):
 @patch("clony.internals.checkout.get_repository_status")
 @patch("clony.internals.checkout.get_commit_tree_hash")
 def test_detect_conflicts_no_tree_hash(
-    mock_get_commit_tree_hash, mock_get_repository_status
+    mock_get_commit_tree_hash,
+    mock_get_repository_status,
+    temp_dir: pathlib.Path,
 ):
     """
     Test that detect_conflicts handles missing tree hash gracefully.
     """
 
     # Setup mocks
-    repo_path = Path("/fake/repo")
+    repo_path = temp_dir
     commit_hash = "commit123"
 
     # Mock status
@@ -1044,11 +1134,13 @@ def test_detect_conflicts_no_tree_hash(
     assert result == {}
 
 
-def test_restore_files_with_force():
+# Test restore_files with force flag
+@pytest.mark.unit
+def test_restore_files_with_force(temp_dir: pathlib.Path):
     """Test restore_files with force flag."""
-    # Setup
 
-    repo_path = Path("/test/repo")
+    # Setup mocks
+    repo_path = temp_dir
     paths = ["file1.txt", "file2.txt"]
     source_ref = "HEAD"
     force = True

@@ -164,14 +164,98 @@ def update_working_dir_to_commit(repo_path: Path, commit_hash: str) -> bool:
         bool: True if successful, False otherwise.
     """
 
-    # Implementation to reset working directory would go here
-    # For now, we'll log that it's a placeholder
+    try:
+        import os
+        import shutil
 
-    # Log the update
-    logger.debug(f"Updated working directory to match commit {commit_hash}")
+        # Import here to avoid circular imports
+        from clony.internals.checkout import (
+            get_commit_tree_hash,
+            get_files_from_tree,
+            update_working_dir_to_tree,
+        )
 
-    # Return True to indicate success
-    return True
+        # Get the tree hash from the commit
+        tree_hash = get_commit_tree_hash(repo_path, commit_hash)
+        if not tree_hash:
+            logger.error(f"Failed to get tree hash for commit {commit_hash}")
+            return False
+
+        # Get the files from the target tree
+        target_files = get_files_from_tree(repo_path, tree_hash)
+
+        # Walk the working directory to identify files that should be removed
+        git_dir = repo_path / ".git"
+
+        # First remove unwanted files
+        for root, _, files in os.walk(repo_path):
+            root_path = Path(root)
+
+            # Skip the .git directory
+            if git_dir in root_path.parents or root_path == git_dir:
+                continue
+
+            # Process files in the current directory
+            for file in files:
+                file_path = root_path / file
+                relative_path = file_path.relative_to(repo_path)
+                # Ensure consistent path separators
+                rel_path_str = str(relative_path).replace("\\", "/")
+
+                # If the file doesn't exist in the target tree, remove it
+                if rel_path_str not in target_files:
+                    try:
+                        file_path.unlink()
+                        logger.debug(f"Removed file: {rel_path_str}")
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to remove file {rel_path_str}: {str(e)}"
+                        )
+
+        # Now handle directories
+        # Get all directories in the working directory
+        all_dirs = []
+        for root, dirs, _ in os.walk(repo_path):
+            root_path = Path(root)
+            if git_dir in root_path.parents or root_path == git_dir:
+                continue
+
+            for dir_name in dirs:
+                dir_path = root_path / dir_name
+                if git_dir not in dir_path.parents and dir_path != git_dir:
+                    all_dirs.append(dir_path)
+
+        # Sort directories by depth (deepest first)
+        all_dirs.sort(key=lambda p: len(p.parts), reverse=True)
+
+        # Remove empty directories
+        for dir_path in all_dirs:
+            try:
+                # Check if directory exists and is empty
+                if dir_path.exists() and not any(dir_path.iterdir()):
+                    shutil.rmtree(dir_path)
+                    rel_path = dir_path.relative_to(repo_path)
+                    logger.debug(f"Removed directory: {rel_path}")
+            except Exception as e:
+                rel_path = dir_path.relative_to(repo_path)
+                logger.warning(f"Failed to remove directory {rel_path}: {str(e)}")
+
+        # Update the working directory to match the tree
+        if not update_working_dir_to_tree(repo_path, tree_hash):
+            logger.error(
+                f"Failed to update working directory to match tree {tree_hash}"
+            )
+            return False
+
+        # Log the update
+        logger.debug(f"Updated working directory to match commit {commit_hash}")
+
+        # Return True to indicate success
+        return True
+    except Exception as e:
+        # Log any unexpected errors
+        logger.error(f"Failed to update working directory: {str(e)}")
+        return False
 
 
 # Function to display reset information in a table
@@ -308,6 +392,24 @@ def reset_head(
 
     # Display reset information in a table
     display_reset_info(commit_hash, mode, commit_info)
+
+    # Return True to indicate success
+    return True
+
+    # Return True to indicate success
+    return True
+    return True
+
+    # Return True to indicate success
+    return True
+    return True
+
+    # Return True to indicate success
+    return True
+
+    # Return True to indicate success
+    return True
+    return True
 
     # Return True to indicate success
     return True
