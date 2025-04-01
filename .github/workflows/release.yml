@@ -75,7 +75,7 @@ jobs:
             # Step 5: Create GitHub Release with built artifacts
             # This step uploads the built distributions and generates release notes
             - name: Create GitHub Release
-              uses: softprops/action-gh-release@v1
+              uses: softprops/action-gh-release@v2
               with:
                   # Include both source distribution and wheel in the release
                   files: |
