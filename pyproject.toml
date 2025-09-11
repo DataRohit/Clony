@@ -23,7 +23,7 @@ dependencies = [
     "colorlog>=6.8.0",
     "colorama>=0.4.6",
 ]
-urls = {Homepage = "https://github.com/rohitvilas/clony"}
+urls = {Homepage = "https://github.com/datarohit/clony"}
 
 [project.optional-dependencies]
 dev = [
